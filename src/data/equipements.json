@@ -1,0 +1,20 @@
+[
+  {
+    "id": "equip_001",
+    "titre": "Enceinte Bluetooth Haute Puissance",
+    "description": "Idéal pour les grands événements en extérieur à Mayotte. Son clair et basses profondes.",
+    "prix_journalier": 50.00,
+    "montant_caution": 300.00,
+    "specifications_techniques": [
+      "1000W RMS", 
+      "Autonomie 15h", 
+      "Connectique Micro/Guitare"
+    ],
+    "dates_indisponibles": [
+      "2026-06-25", 
+      "2026-06-26", 
+      "2026-07-01"
+    ],
+    "image_url": "/images/location/jbl.jpg"
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "prod_001",
+    "titre": "Mataba",
+    "description": "Plat traditionnel préparé avec du mataba, du cumin et des épices locales.",
+    "categorie": "Plats locaux",
+    "image_url": "/images/gastronomie/mataba.jpg",
+    "variantes": [
+      { "id": "v1", "nom": "Format Petit (Individuel)", "prix": 10.00 },
+      { "id": "v2", "nom": "Format Moyen (Standard)", "prix": 15.00 },
+      { "id": "v3", "nom": "Format Grand (Familial)", "prix": 25.00 }
+    ],
+    "disponible": true
+  }
+]
