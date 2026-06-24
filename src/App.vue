@@ -309,6 +309,7 @@ const fraisLogistique = computed(() => {
 const totalArticles = computed(() => panier.value.reduce((total, item) => total + (item.prix * item.quantite), 0))
 const totalGénéral = computed(() => totalArticles.value + fraisLogistique.value)
 
+// ... existing code ...
 const commanderSurWhatsApp = () => {
   // 1. Validation stricte des saisies utilisateur
   if (!nomClient.value || !dateCommande.value) {
@@ -320,43 +321,52 @@ const commanderSurWhatsApp = () => {
     return;
   }
 
-  // 2. Construction d'un véritable ticket de caisse digital
+  const eBag = String.fromCodePoint(0x1F6CD);
+  const eUser = String.fromCodePoint(0x1F464);
+  const eDate = String.fromCodePoint(0x1F4C5);
+  const eMoto = String.fromCodePoint(0x1F6F5);
+  const eBox = String.fromCodePoint(0x1F4E6);
+  const eNote = String.fromCodePoint(0x1F4DD);
+  const eCard = String.fromCodePoint(0x1F4B3);
+  const eCheck = String.fromCodePoint(0x2705);
+  const eDot = String.fromCodePoint(0x25AA);
+  const eArrow = String.fromCodePoint(0x21B3);
+
   let message = `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `🛍️ *NOUVELLE COMMANDE*\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `${eBag} *NOUVELLE COMMANDE*\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
   
-  // --- INFOS CLIENT ---
-  message += `👤 *Client :* ${nomClient.value}\n`;
-  message += `📅 *Date prévue :* ${dateCommande.value}\n`;
+  message += `${eUser} *Client :* ${nomClient.value}\n`;
+  message += `${eDate} *Date prévue :* ${dateCommande.value}\n`;
   
   if (modeLivraison.value === 'livraison') {
-    message += `🛵 *Logistique :* Livraison (Petite-Terre)\n\n`;
+    message += `${eMoto} *Logistique :* Livraison (Petite-Terre)\n\n`;
   } else {
     const lieu = lieuRetrait.value === 'dzaoudzi' ? 'Dzaoudzi' : 'Mamoudzou';
-    message += `📦 *Logistique :* Retrait sur place (${lieu})\n\n`;
+    message += `${eBox} *Logistique :* Retrait sur place (${lieu})\n\n`;
   }
 
-  // --- DÉTAIL DES ARTICLES ---
-  message += `📝 *RÉSUMÉ DES ARTICLES*\n`;
-  message += `──────────────────────\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `${eNote} *RÉSUMÉ DES ARTICLES*\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
 
   panier.value.forEach(item => {
     let nomArticle = item.titre;
     let details = "";
     
-    // Scission intelligente : Si le titre contient une variante (ex: "Test 1 - Format Grand")
+    // Scission intelligente : Si le titre contient une variante
     if (item.titre.includes(" - ")) {
       const parts = item.titre.split(" - ");
-      nomArticle = parts[0]; // Récupère "Test 1"
-      details = `\n   ↳ ${parts.slice(1).join(" - ")}`; // Aligne "Format Grand" en dessous avec une flèche
+      nomArticle = parts[0]; 
+      details = `\n   ${eArrow} ${parts.slice(1).join(" - ")}`; 
     }
     
-    message += `▪️ *${item.quantite}x ${nomArticle}*${details} (${item.prix} €)\n`;
+    message += `${eDot} *${item.quantite}x ${nomArticle}*${details} (${item.prix} €)\n`;
   });
 
-  // --- FACTURATION ---
-  message += `\n💳 *DÉTAIL DE FACTURATION*\n`;
-  message += `──────────────────────\n`;
+  message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `${eCard} *DÉTAIL DE FACTURATION*\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
   
   const sousTotal = totalGénéral.value - fraisLogistique.value;
   message += `Sous-total : ${sousTotal} €\n`;
@@ -367,14 +377,14 @@ const commanderSurWhatsApp = () => {
   
   message += `\n*TOTAL À PAYER : ${totalGénéral.value} €*\n`;
   message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `Merci de confirmer la bonne réception de cette commande. ✅`;
+  message += `Merci de confirmer la bonne réception de cette commande. ${eCheck}`;
 
-  // 3. Routage vers WhatsApp
   const numeroVendeur = "262639610515"; 
   const urlApi = `https://wa.me/${numeroVendeur}?text=${encodeURIComponent(message)}`;
   
   window.open(urlApi, '_blank');
 };
+// ... existing code ...
 </script>
 
 <template>
