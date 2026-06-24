@@ -380,10 +380,9 @@ const commanderSurWhatsApp = () => {
 
   // 4. Routage vers l'API de destination
   const numeroVendeur = "262639610515";
-  const urlApi = `https://wa.me/${numeroVendeur}?text=${encodeURIComponent(message)}`;
-  
-  // 5. Instanciation du protocole d'ouverture de lien universel
-  window.open(urlApi, '_blank');
+ const urlApi = `whatsapp://send?phone=${numeroVendeur}&text=${encodeURIComponent(message)}`;
+
+  window.location.href = urlApi;
 };
 // ... existing code ...
 </script>
