@@ -311,7 +311,7 @@ const totalGénéral = computed(() => totalArticles.value + fraisLogistique.valu
 
 // ... existing code ...
 const commanderSurWhatsApp = () => {
-  // 1. Validation stricte des saisies utilisateur
+  // 1. Validation de l'intégrité des données requises
   if (!nomClient.value || !dateCommande.value) {
     alert("Veuillez impérativement renseigner votre nom et la date de récupération.");
     return;
@@ -321,67 +321,68 @@ const commanderSurWhatsApp = () => {
     return;
   }
 
-  const eBag = String.fromCodePoint(0x1F6CD);
-  const eUser = String.fromCodePoint(0x1F464);
-  const eDate = String.fromCodePoint(0x1F4C5);
-  const eMoto = String.fromCodePoint(0x1F6F5);
-  const eBox = String.fromCodePoint(0x1F4E6);
-  const eNote = String.fromCodePoint(0x1F4DD);
-  const eCard = String.fromCodePoint(0x1F4B3);
-  const eCheck = String.fromCodePoint(0x2705);
-  const eDot = String.fromCodePoint(0x25AA);
-  const eArrow = String.fromCodePoint(0x21B3);
-
-  let message = `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `${eBag} *NOUVELLE COMMANDE*\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  // 2. Déclaration des caractères spéciaux via échappements Unicode sécurisés (ASCII pur)
+  const iconReceipt = "\u{1F9FE}";   // Code pour l'émoji Ticket/Reçu 🧾
+  const iconClient = "\u{1F464}";    // Code pour l'émoji Silhouette 👤
+  const iconCalendar = "\u{1F4C5}";  // Code pour l'émoji Calendrier 📅
+  const iconDelivery = "\u{1F6F5}";  // Code pour l'émoji Scooter 🛵
+  const iconPackage = "\u{1F4E6}";   // Code pour l'émoji Colis 📦
+  const iconBags = "\u{1F6CD}";      // Code pour l'émoji Sacs de course 🛍
+  const iconItem = "\u{1F539}";      // Code pour le losange bleu 🔹
+  const iconBilling = "\u{1F4B3}";   // Code pour la carte bancaire 💳
+  const iconTotal = "\u{1F4B0}";     // Code pour le sac de monnaie 💰
+  const iconSparkles = "\u{2728}";   // Code pour les étincelles ✨
+  const arrow = "\u{21B3}";          // Code pour la flèche de sous-section ↳
+  const euro = " \u{20AC}";          // Code pour le symbole Euro €
   
-  message += `${eUser} *Client :* ${nomClient.value}\n`;
-  message += `${eDate} *Date prévue :* ${dateCommande.value}\n`;
+  // Génération dynamique de la ligne de séparation continue ━
+  const lineBar = "\u{2501}".repeat(22) + "\n";
+
+  // 3. Construction séquentielle du message formaté
+  let message = lineBar;
+  message += `${iconReceipt} *NOUVELLE COMMANDE*\n`;
+  message += lineBar;
+  message += `\n`;
+  message += `${iconClient} *Client :* ${nomClient.value}\n`;
+  message += `${iconCalendar} *Date prévue :* ${dateCommande.value}\n`;
   
   if (modeLivraison.value === 'livraison') {
-    message += `${eMoto} *Logistique :* Livraison (Petite-Terre)\n\n`;
+    message += `${iconDelivery} *Logistique :* Livraison (Petite-Terre)\n`;
   } else {
     const lieu = lieuRetrait.value === 'dzaoudzi' ? 'Dzaoudzi' : 'Mamoudzou';
-    message += `${eBox} *Logistique :* Retrait sur place (${lieu})\n\n`;
+    message += `${iconPackage} *Logistique :* Click & Collect (${lieu})\n`;
   }
+  
+  message += `\n`;
+  message += lineBar;
+  message += `${iconBags} *RÉSUMÉ DES ARTICLES*\n`;
+  message += lineBar;
 
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `${eNote} *RÉSUMÉ DES ARTICLES*\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-
+  // Itération et extraction des spécifications des articles
   panier.value.forEach(item => {
-    let nomArticle = item.titre;
-    let details = "";
-    
-    // Scission intelligente : Si le titre contient une variante
-    if (item.titre.includes(" - ")) {
-      const parts = item.titre.split(" - ");
-      nomArticle = parts[0]; 
-      details = `\n   ${eArrow} ${parts.slice(1).join(" - ")}`; 
+    message += `${iconItem} *${item.quantite}x ${item.titre}*\n`;
+    if (item.varianteChoisie && item.varianteChoisie.nom) {
+      message += `   ${arrow} ${item.varianteChoisie.nom} (${item.prix}${euro})\n`;
+    } else if (item.prix) {
+      message += `   ${arrow} Tarif unique (${item.prix}${euro})\n`;
     }
-    
-    message += `${eDot} *${item.quantite}x ${nomArticle}*${details} (${item.prix} €)\n`;
   });
 
-  message += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `${eCard} *DÉTAIL DE FACTURATION*\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  
-  const sousTotal = totalGénéral.value - fraisLogistique.value;
-  message += `Sous-total : ${sousTotal} €\n`;
-  
-  if (fraisLogistique.value > 0) {
-    message += `Frais logistiques : ${fraisLogistique.value} €\n`;
-  }
-  
-  message += `\n*TOTAL À PAYER : ${totalGénéral.value} €*\n`;
-  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
-  message += `Merci de confirmer la bonne réception de cette commande. ${eCheck}`;
+  message += `\n`;
+  message += lineBar;
+  message += `${iconBilling} *DÉTAIL DE FACTURATION*\n`;
+  message += lineBar;
+  message += `Sous-total : ${totalArticles.value}${euro}\n`;
+  message += `Frais logistiques : ${fraisLogistique.value}${euro}\n\n`;
+  message += `${iconTotal} *TOTAL À PAYER : ${totalGénéral.value}${euro}*\n`;
+  message += lineBar;
+  message += `Merci de confirmer la bonne réception de cette commande. ${iconSparkles}\n`;
 
-  const numeroVendeur = "262639610515"; 
+  // 4. Routage vers l'API de destination
+  const numeroVendeur = "262639610515";
   const urlApi = `https://wa.me/${numeroVendeur}?text=${encodeURIComponent(message)}`;
   
+  // 5. Instanciation du protocole d'ouverture de lien universel
   window.open(urlApi, '_blank');
 };
 // ... existing code ...
