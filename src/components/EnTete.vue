@@ -9,97 +9,165 @@ defineEmits(['toggle-vendeur', 'open-panier'])
 
 <template>
   <header class="en-tete">
-    <div>
-      <h1>Ma Boutique Locale</h1>
-      <p class="sous-titre">Une expérience gourmande et pratique, pensée pour mobile : plats locaux, locations faciles et commandes rapides.</p>
+    <div class="identite-visuelle">
+      <div class="logo-container">
+        <span class="logo-emoji">🧺</span>
+      </div>
+      <div class="titre-container">
+        <h1>MA BOUTIQUE LOCALE</h1>
+        <p class="sous-titre">Une expérience gourmande et pratique, pensée pour mobile : plats locaux, locations faciles et commandes rapides.</p>
+      </div>
     </div>
+
     <div class="actions-entete">
       <button class="bouton-vendeur" @click="$emit('toggle-vendeur')">
-        {{ modeVendeur ? 'Quitter Mode Vendeur' : '👨‍💼 Accès Vendeur' }}
+        👨‍💼 ESPACE VENDEUR
       </button>
-      <button class="panier-encart" @click="$emit('open-panier')">
-        🛒 Panier : {{ panierLength }}
-      </button>
+      <div class="panier-wrapper">
+        <button class="panier-encart" @click="$emit('open-panier')">
+          🛒 PANIER
+        </button>
+        <span class="badge-notification" v-if="panierLength >= 0">{{ panierLength }}</span>
+      </div>
     </div>
   </header>
 </template>
 
 <style scoped>
+/* Importation de la typographie depuis Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap');
+
 .en-tete {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
   flex-wrap: wrap;
-  margin-bottom: 26px;
+  margin-bottom: 32px;
 }
 
-.en-tete h1 {
-  font-size: 2rem;
-  line-height: 1.05;
+.identite-visuelle {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.logo-container {
+  font-size: 3rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+}
+
+.titre-container h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #3b302a; /* Marron très foncé */
   margin: 0;
-  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
-.en-tete .sous-titre {
-  color: #6b7b8c;
-  margin-top: 8px;
-  font-size: 1rem;
-  max-width: 420px;
-  line-height: 1.6;
+.titre-container .sous-titre {
+  font-family: 'Inter', sans-serif;
+  color: #2c2520;
+  margin-top: 6px;
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .actions-entete {
   display: flex;
-  gap: 10px;
+  gap: 16px;
+  align-items: center;
   flex-wrap: wrap;
-  width: 100%;
-  justify-content: flex-end;
-}
-
-.bouton-vendeur,
-.panier-encart {
-  border: none;
-  border-radius: 20px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
 }
 
 .bouton-vendeur {
-  padding: 14px 20px;
-  background: linear-gradient(135deg, #f08a5d, #f7b872);
+  font-family: 'Inter', sans-serif;
+  padding: 12px 24px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #bc6c46, #d98f6a);
   color: white;
-  font-weight: 700;
-  box-shadow: 0 16px 32px rgba(240, 138, 93, 0.24);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  box-shadow: 0 8px 24px rgba(188, 108, 70, 0.3);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .bouton-vendeur:hover {
   transform: translateY(-2px);
-  opacity: 0.97;
+  box-shadow: 0 12px 28px rgba(188, 108, 70, 0.4);
+}
+
+.panier-wrapper {
+  position: relative;
 }
 
 .panier-encart {
-  background: linear-gradient(135deg, #2abf84, #34d9a5);
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(135deg, #74b4aa, #8bc9bf);
   color: white;
-  padding: 14px 18px;
-  font-weight: 700;
-  box-shadow: 0 18px 40px rgba(42, 191, 132, 0.18);
+  padding: 12px 24px;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  box-shadow: 0 8px 24px rgba(116, 180, 170, 0.3);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .panier-encart:hover {
   transform: translateY(-2px);
-  opacity: 0.97;
+  box-shadow: 0 12px 28px rgba(116, 180, 170, 0.4);
+}
+
+/* Le macaron du compteur */
+.badge-notification {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #1a5653; /* Vert très sombre */
+  color: white;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #f6f3ef; /* Bordure fusionnant avec le fond global */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 @media (max-width: 640px) {
-  .bouton-vendeur,
-  .panier-encart {
-    border-radius: 16px;
+  .en-tete {
+    flex-direction: column;
+    gap: 20px;
+  }
+  
+  .identite-visuelle {
+    flex-direction: column;
+    gap: 12px;
   }
 
+  .titre-container h1 {
+    font-size: 1.8rem;
+  }
+  
   .actions-entete {
-    justify-content: space-between;
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 </style>
