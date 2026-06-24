@@ -344,14 +344,13 @@ const commanderSurWhatsApp = () => {
   message += `\n*Total à régler : ${totalGénéral.value} €*`;
 
   // 3. Configuration de la cible de routage
-  // Le numéro doit être au format international sans le signe "+".
-  // L'indicatif 262 est préconfiguré pour Mayotte, suivi du numéro local à 9 chiffres.
-  const numeroVendeur = "262639000000"; // Remplacer par le numéro réel de ta mère/boutique
+  // Le préfixe '+' est proscrit par l'API de redirection
+  const numeroVendeur = "262639610515"; 
 
-  // 4. Encodage URI (Uniform Resource Identifier) pour gérer les espaces et sauts de ligne
+  // 4. Encodage URI (Uniform Resource Identifier)
   const urlApi = `https://wa.me/${numeroVendeur}?text=${encodeURIComponent(message)}`;
 
-  // 5. Exécution de l'Universal Link (Ouverture applicative ou web)
+  // 5. Exécution de l'Universal Link
   window.open(urlApi, '_blank');
 };
 </script>
