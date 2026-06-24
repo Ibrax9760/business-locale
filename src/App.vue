@@ -311,6 +311,7 @@ const totalGénéral = computed(() => totalArticles.value + fraisLogistique.valu
 
 // ... existing code ...
 const commanderSurWhatsApp = () => {
+  // 1. Validation des champs obligatoires
   if (!nomClient.value || !dateCommande.value) {
     alert("Veuillez renseigner votre nom et la date de récupération.");
     return;
@@ -320,54 +321,58 @@ const commanderSurWhatsApp = () => {
     return;
   }
 
-  // Émojis (Génération dynamique sécurisée)
-  const e_client = String.fromCodePoint(0x1F464);
-  const e_calendar = String.fromCodePoint(0x1F4C5);
-  const e_log = String.fromCodePoint(0x1F6F5); // Scooter
-  const e_shop = String.fromCodePoint(0x1F4E6); // Colis
-  const e_cart = String.fromCodePoint(0x1F6D2); // Caddie
-  const e_star = String.fromCodePoint(0x2B50);  // Étoile
-  const e_check = String.fromCodePoint(0x2705); // Check
-  const e_money = String.fromCodePoint(0x1F4B0);
-  const separator = "──────────────────────────";
+  // 2. Construction du message (Modèle optimisé)
+  let message = `✨ *COMMANDE REÇUE*\n\n`;
+  message += `━━━━━━━━━━━━━━━━━━\n\n`;
 
-  // Construction du message
-  let message = `*NOUVELLE COMMANDE*\n${separator}\n\n`;
-  
-  message += `${e_client} Client : ${nomClient.value}\n`;
-  message += `${e_calendar} Date : ${dateCommande.value}\n`;
-  
+  message += `👤 ${nomClient.value}\n`;
+  message += `📅 ${dateCommande.value}\n`;
+
   if (modeLivraison.value === 'livraison') {
-    message += `${e_log} Mode : Livraison (Petite-Terre)\n\n`;
+    message += `🛵 Livraison • Petite-Terre\n`;
   } else {
     const lieu = lieuRetrait.value === 'dzaoudzi' ? 'Dzaoudzi' : 'Mamoudzou';
-    message += `${e_shop} Mode : Click & Collect (${lieu})\n\n`;
+    message += `📦 Click & Collect • ${lieu}\n`;
   }
 
-  message += `${e_cart} *Articles :*\n`;
+  message += `\n━━━━━━━━━━━━━━━━━━\n\n`;
+  message += `🍰 *Votre sélection*\n\n`;
 
   panier.value.forEach(item => {
-    message += `• ${item.quantite}x ${item.titre}\n`;
-    if (item.varianteChoisie && item.varianteChoisie.nom) {
-      message += `  ↳ ${item.varianteChoisie.nom} : ${item.prix} €\n`;
-    } else {
-      message += `  ↳ Prix : ${item.prix} €\n`;
+    message += `• ${item.titre}\n`;
+    if (item.varianteChoisie?.nom) {
+      message += `  ${item.varianteChoisie.nom}\n`;
     }
+    message += `  ${item.prix} €\n\n`;
   });
 
-  message += `\n${separator}\n`;
-  message += `Sous-total : ${totalArticles.value} €\n`;
-  message += `Livraison : ${fraisLogistique.value} €\n\n`;
-  
-  message += `*TOTAL : ${totalGénéral.value} €*\n`;
-  message += `${separator}\n`;
-  message += `${e_check} Merci de confirmer la réception ! ${e_star}`;
+  message += `━━━━━━━━━━━━━━━━━━\n\n`;
+  message += `💵 Sous-total : ${totalArticles.value} €\n`;
 
-  // Routage natif (Deep Link)
+  if (fraisLogistique.value > 0) {
+    message += `🚚 Livraison : ${fraisLogistique.value} €\n`;
+  }
+
+  message += `\n✨ *TOTAL : ${totalGénéral.value} €*\n\n`;
+  message += `━━━━━━━━━━━━━━━━━━\n\n`;
+  message += `🙏 Merci pour votre confiance.\n`;
+  message += `Nous vous confirmerons la préparation de votre commande dans les plus brefs délais.`;
+
+  // 3. Variables de routage
   const numeroVendeur = "262639610515";
-  const urlApi = `whatsapp://send?phone=${numeroVendeur}&text=${encodeURIComponent(message)}`;
+  const texteEncode = encodeURIComponent(message);
+  
+  // 4. Analyse de l'environnement (Détection Mobile vs Desktop)
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  window.location.href = urlApi;
+  // 5. Exécution de la redirection conditionnelle
+  if (isMobile) {
+    // Protocole natif pour mobile : contourne les bugs d'encodage des navigateurs mobiles
+    window.location.href = `whatsapp://send?phone=${numeroVendeur}&text=${texteEncode}`;
+  } else {
+    // API Web pour PC : ouvre un nouvel onglet vers WhatsApp Web
+    window.open(`https://web.whatsapp.com/send?phone=${numeroVendeur}&text=${texteEncode}`, '_blank');
+  }
 };
 // ... existing code ...
 </script>
