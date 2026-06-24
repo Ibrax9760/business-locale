@@ -371,7 +371,17 @@ const commanderSurWhatsApp = () => {
     window.location.href = `whatsapp://send?phone=${numeroVendeur}&text=${texteEncode}`;
   } else {
     // API Web pour PC : ouvre un nouvel onglet vers WhatsApp Web
-    window.open(`https://web.whatsapp.com/send?phone=${numeroVendeur}&text=${texteEncode}`, '_blank');
+// 4. Analyse de l'environnement (Détection Mobile vs Desktop)
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  // 5. Exécution de la redirection conditionnelle
+  if (isMobile) {
+    // Protocole natif pour mobile : contourne les bugs d'encodage des navigateurs mobiles
+    window.location.href = `whatsapp://send?phone=${numeroVendeur}&text=${texteEncode}`;
+  } else {
+    // Routeur universel pour PC : restaure la page proposant d'ouvrir l'application Windows
+    window.open(`https://api.whatsapp.com/send?phone=${numeroVendeur}&text=${texteEncode}`, '_blank');
+  }
   }
 };
 // ... existing code ...
