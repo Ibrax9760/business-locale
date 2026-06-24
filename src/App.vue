@@ -310,9 +310,50 @@ const totalArticles = computed(() => panier.value.reduce((total, item) => total 
 const totalGénéral = computed(() => totalArticles.value + fraisLogistique.value)
 
 const commanderSurWhatsApp = () => {
-  // Garde ton code existant ici ou copie l'alerte simple pour tester
-  alert("Prêt pour l'envoi WhatsApp ! Total: " + totalGénéral.value + "€")
-}
+  // 1. Validation stricte des saisies utilisateur
+  if (!nomClient.value || !dateCommande.value) {
+    alert("Veuillez impérativement renseigner votre nom et la date de récupération.");
+    return;
+  }
+  if (panier.value.length === 0) {
+    alert("Votre panier est vide.");
+    return;
+  }
+
+  // 2. Construction et formatage du corps du message
+  let message = `🛒 *Nouvelle Commande de ${nomClient.value}*\n`;
+  message += `📅 Date souhaitée : ${dateCommande.value}\n`;
+  
+  // Formatage conditionnel selon la logistique choisie
+  if (modeLivraison.value === 'livraison') {
+    message += `🛵 Mode : Livraison (Petite-Terre)\n\n`;
+  } else {
+    const lieu = lieuRetrait.value === 'dzaoudzi' ? 'Dzaoudzi' : 'Mamoudzou';
+    message += `📦 Mode : Click & Collect (${lieu})\n\n`;
+  }
+
+  message += `*Détail des articles :*\n`;
+
+  // Itération sur le tableau des objets du panier
+  panier.value.forEach(item => {
+    message += `- ${item.quantite}x ${item.titre} (${item.prix} €)\n`;
+  });
+
+  // Synthèse financière
+  message += `\n*Frais logistiques :* ${fraisLogistique.value} €`;
+  message += `\n*Total à régler : ${totalGénéral.value} €*`;
+
+  // 3. Configuration de la cible de routage
+  // Le numéro doit être au format international sans le signe "+".
+  // L'indicatif 262 est préconfiguré pour Mayotte, suivi du numéro local à 9 chiffres.
+  const numeroVendeur = "262639000000"; // Remplacer par le numéro réel de ta mère/boutique
+
+  // 4. Encodage URI (Uniform Resource Identifier) pour gérer les espaces et sauts de ligne
+  const urlApi = `https://wa.me/${numeroVendeur}?text=${encodeURIComponent(message)}`;
+
+  // 5. Exécution de l'Universal Link (Ouverture applicative ou web)
+  window.open(urlApi, '_blank');
+};
 </script>
 
 <template>
