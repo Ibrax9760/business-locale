@@ -320,37 +320,59 @@ const commanderSurWhatsApp = () => {
     return;
   }
 
-  // 2. Construction et formatage du corps du message
-  let message = `🛒 *Nouvelle Commande de ${nomClient.value}*\n`;
-  message += `📅 Date souhaitée : ${dateCommande.value}\n`;
+  // 2. Construction d'un véritable ticket de caisse digital
+  let message = `━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `🛍️ *NOUVELLE COMMANDE*\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
   
-  // Formatage conditionnel selon la logistique choisie
+  // --- INFOS CLIENT ---
+  message += `👤 *Client :* ${nomClient.value}\n`;
+  message += `📅 *Date prévue :* ${dateCommande.value}\n`;
+  
   if (modeLivraison.value === 'livraison') {
-    message += `🛵 Mode : Livraison (Petite-Terre)\n\n`;
+    message += `🛵 *Logistique :* Livraison (Petite-Terre)\n\n`;
   } else {
     const lieu = lieuRetrait.value === 'dzaoudzi' ? 'Dzaoudzi' : 'Mamoudzou';
-    message += `📦 Mode : Click & Collect (${lieu})\n\n`;
+    message += `📦 *Logistique :* Retrait sur place (${lieu})\n\n`;
   }
 
-  message += `*Détail des articles :*\n`;
+  // --- DÉTAIL DES ARTICLES ---
+  message += `📝 *RÉSUMÉ DES ARTICLES*\n`;
+  message += `──────────────────────\n`;
 
-  // Itération sur le tableau des objets du panier
   panier.value.forEach(item => {
-    message += `- ${item.quantite}x ${item.titre} (${item.prix} €)\n`;
+    let nomArticle = item.titre;
+    let details = "";
+    
+    // Scission intelligente : Si le titre contient une variante (ex: "Test 1 - Format Grand")
+    if (item.titre.includes(" - ")) {
+      const parts = item.titre.split(" - ");
+      nomArticle = parts[0]; // Récupère "Test 1"
+      details = `\n   ↳ ${parts.slice(1).join(" - ")}`; // Aligne "Format Grand" en dessous avec une flèche
+    }
+    
+    message += `▪️ *${item.quantite}x ${nomArticle}*${details} (${item.prix} €)\n`;
   });
 
-  // Synthèse financière
-  message += `\n*Frais logistiques :* ${fraisLogistique.value} €`;
-  message += `\n*Total à régler : ${totalGénéral.value} €*`;
+  // --- FACTURATION ---
+  message += `\n💳 *DÉTAIL DE FACTURATION*\n`;
+  message += `──────────────────────\n`;
+  
+  const sousTotal = totalGénéral.value - fraisLogistique.value;
+  message += `Sous-total : ${sousTotal} €\n`;
+  
+  if (fraisLogistique.value > 0) {
+    message += `Frais logistiques : ${fraisLogistique.value} €\n`;
+  }
+  
+  message += `\n*TOTAL À PAYER : ${totalGénéral.value} €*\n`;
+  message += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+  message += `Merci de confirmer la bonne réception de cette commande. ✅`;
 
-  // 3. Configuration de la cible de routage
-  // Le préfixe '+' est proscrit par l'API de redirection
+  // 3. Routage vers WhatsApp
   const numeroVendeur = "262639610515"; 
-
-  // 4. Encodage URI (Uniform Resource Identifier)
   const urlApi = `https://wa.me/${numeroVendeur}?text=${encodeURIComponent(message)}`;
-
-  // 5. Exécution de l'Universal Link
+  
   window.open(urlApi, '_blank');
 };
 </script>
