@@ -1,10 +1,11 @@
 <script setup>
 defineProps({
-  modeVendeur: Boolean,
+  utilisateur: Object,
+  profilClient: Object,
   panierLength: Number
 })
 
-defineEmits(['toggle-vendeur', 'open-panier'])
+defineEmits(['toggle-vendeur', 'open-panier', 'deconnexion', 'open-auth'])
 </script>
 
 <template>
@@ -20,9 +21,18 @@ defineEmits(['toggle-vendeur', 'open-panier'])
     </div>
 
     <div class="actions-entete">
+      <template v-if="utilisateur">
+        <span class="greeting">Bonjour, <strong>{{ profilClient?.nom || 'Ibrahim' }}</strong></span>
+        <button class="bouton-auth" @click="$emit('deconnexion')">Déconnexion</button>
+      </template>
+      <template v-else>
+        <button class="bouton-auth action-principale" @click="$emit('open-auth')">Connexion / Inscription</button>
+      </template>
+
       <button class="bouton-vendeur" @click="$emit('toggle-vendeur')">
         👨‍💼 ESPACE VENDEUR
       </button>
+      
       <div class="panier-wrapper">
         <button class="panier-encart" @click="$emit('open-panier')">
           🛒 PANIER
@@ -34,7 +44,6 @@ defineEmits(['toggle-vendeur', 'open-panier'])
 </template>
 
 <style scoped>
-/* Importation de la typographie depuis Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap');
 
 .en-tete {
@@ -63,7 +72,7 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   font-family: 'Playfair Display', serif;
   font-size: 2.2rem;
   font-weight: 700;
-  color: #3b302a; /* Marron très foncé */
+  color: #3b302a;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -84,6 +93,36 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   flex-wrap: wrap;
 }
 
+/* Nouveaux styles pour l'authentification */
+.greeting {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  color: #3b302a;
+}
+
+.bouton-auth {
+  font-family: 'Inter', sans-serif;
+  padding: 10px 20px;
+  border-radius: 9999px;
+  background: #f4f6f8;
+  color: #3b302a;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: 1px solid #d1d9e0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bouton-auth:hover { background: #e1e8ed; }
+
+.action-principale {
+  background: #3b302a;
+  color: white;
+  border: none;
+}
+.action-principale:hover { background: #2c2520; }
+
+/* Styles originaux restaurés */
 .bouton-vendeur {
   font-family: 'Inter', sans-serif;
   padding: 12px 24px;
@@ -96,8 +135,6 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   box-shadow: 0 8px 24px rgba(188, 108, 70, 0.3);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .bouton-vendeur:hover {
@@ -105,9 +142,7 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   box-shadow: 0 12px 28px rgba(188, 108, 70, 0.4);
 }
 
-.panier-wrapper {
-  position: relative;
-}
+.panier-wrapper { position: relative; }
 
 .panier-encart {
   font-family: 'Inter', sans-serif;
@@ -121,8 +156,6 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   box-shadow: 0 8px 24px rgba(116, 180, 170, 0.3);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .panier-encart:hover {
@@ -130,12 +163,11 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   box-shadow: 0 12px 28px rgba(116, 180, 170, 0.4);
 }
 
-/* Le macaron du compteur */
 .badge-notification {
   position: absolute;
   top: -6px;
   right: -6px;
-  background-color: #1a5653; /* Vert très sombre */
+  background-color: #1a5653;
   color: white;
   font-family: 'Inter', sans-serif;
   font-size: 0.75rem;
@@ -146,28 +178,14 @@ defineEmits(['toggle-vendeur', 'open-panier'])
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #f6f3ef; /* Bordure fusionnant avec le fond global */
+  border: 2px solid #f6f3ef;
   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 @media (max-width: 640px) {
-  .en-tete {
-    flex-direction: column;
-    gap: 20px;
-  }
-  
-  .identite-visuelle {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .titre-container h1 {
-    font-size: 1.8rem;
-  }
-  
-  .actions-entete {
-    width: 100%;
-    justify-content: flex-start;
-  }
+  .en-tete { flex-direction: column; gap: 20px; }
+  .identite-visuelle { flex-direction: column; gap: 12px; }
+  .titre-container h1 { font-size: 1.8rem; }
+  .actions-entete { width: 100%; justify-content: flex-start; }
 }
 </style>

@@ -1,13 +1,27 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-// Importation du client Supabase que nous avons configuré
+import { ref, computed, onMounted } from 'vue';
 import { supabase } from './utils/supabaseClient'
+// === ÉTATS D'AUTHENTIFICATION ===
+const session = ref(null);
+const utilisateur = ref(null);
+const profilClient = ref(null);
+
+// === ÉTATS DU FORMULAIRE ===
+const afficherFormulaireAuth = ref(false);
+const estModeInscription = ref(false);
+const emailInput = ref('');
+const motDePasseInput = ref('');
+const nomInput = ref('');
+const messageErreur = ref('');
+
 
 import EnTete from './components/EnTete.vue'
 import PanneauVendeur from './components/PanneauVendeur.vue'
 import CarteProduit from './components/CarteProduit.vue'
 import CarteEquipement from './components/CarteEquipement.vue'
 import TiroirPanier from './components/TiroirPanier.vue'
+
+
 
 // --- ÉTAT DE L'APPLICATION ---
 const panier = ref([])
@@ -24,6 +38,26 @@ const lieuRetrait = ref('dzaoudzi')
 // Variables de données (qui vont recevoir les données de Supabase)
 const produits = ref([])
 const equipements = ref([])
+
+// === MOTEURS DE FILTRAGE OBLIGATOIRES POUR L'AFFICHAGE ===
+const produitsFiltrés = computed(() => {
+  if (!produits.value) return [];
+  return produits.value.filter(p => {
+    // Sécurisation des variables pour éviter l'erreur "undefined.includes"
+    const titreProduit = p.titre || '';
+    const texteRecherche = recherche.value || '';
+    return titreProduit.toLowerCase().includes(texteRecherche.toLowerCase());
+  });
+});
+
+const equipementsFiltrés = computed(() => {
+  if (!equipements.value) return [];
+  return equipements.value.filter(e => {
+    const titreEquipement = e.titre || '';
+    const texteRecherche = recherche.value || '';
+    return titreEquipement.toLowerCase().includes(texteRecherche.toLowerCase());
+  });
+});
 
 // Chargement des données depuis Supabase avec hydratation des métadonnées frontales
 const chargerDonnees = async () => {
@@ -60,9 +94,31 @@ const chargerDonnees = async () => {
 }
 
 // Exécuter le chargement au lancement de l'application
-onMounted(() => {
-  chargerDonnees()
-})
+onMounted(async () => {
+  // 1. Déclenchement de la récupération des articles
+  chargerDonnees();
+
+  // 2. Hydratation explicite de la session au démarrage initial
+  const { data: { session: sessionInitiale } } = await supabase.auth.getSession();
+  
+  if (sessionInitiale?.user) {
+    session.value = sessionInitiale;
+    utilisateur.value = sessionInitiale.user;
+    // Force la récupération du profil (rôle, nom) dans la base de données
+    await recupererProfilMetier(sessionInitiale.user.id);
+  }
+
+  // 3. Maintien de l'écouteur pour les futurs événements (connexion/déconnexion)
+  supabase.auth.onAuthStateChange(async (event, sessionActuelle) => {
+    session.value = sessionActuelle;
+    utilisateur.value = sessionActuelle?.user || null;
+    if (sessionActuelle?.user) {
+      await recupererProfilMetier(sessionActuelle.user.id);
+    } else {
+      profilClient.value = null; // Purge du profil à la déconnexion
+    }
+  });
+});
 
 const notification = ref({ active: false, message: '' })
 let timeoutId = null
@@ -250,22 +306,7 @@ const ajouterArticleVendeur = async () => {
     afficherNotification("❌ Échec de l'enregistrement des données")
   }
 }
-// --- LOGIQUE FILTRES & RECHERCHE ---
-const produitsFiltrés = computed(() => {
-  return produits.value.filter(p => {
-    const correspondRecherche = p.titre.toLowerCase().includes(recherche.value.toLowerCase()) || 
-                                (p.description && p.description.toLowerCase().includes(recherche.value.toLowerCase()))
-    return correspondRecherche && (pageActive.value === 'tout' || pageActive.value === 'gastronomie')
-  })
-})
 
-const equipementsFiltrés = computed(() => {
-  return equipements.value.filter(e => {
-    const correspondRecherche = e.titre.toLowerCase().includes(recherche.value.toLowerCase()) || 
-                                (e.description && e.description.toLowerCase().includes(recherche.value.toLowerCase()))
-    return correspondRecherche && (pageActive.value === 'tout' || pageActive.value === 'location')
-  })
-})
 
 // --- GESTION DU PANIER ---
 const ajouterAuPanier = (article, estProduit = false) => {
@@ -310,6 +351,97 @@ const totalArticles = computed(() => panier.value.reduce((total, item) => total 
 const totalGénéral = computed(() => totalArticles.value + fraisLogistique.value)
 
 // ... existing code ...
+// === FONCTIONS D'AUTHENTIFICATION (RESTAURÉES) ===
+
+const recupererProfilMetier = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('profils')
+      .select('nom, role')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    profilClient.value = data;
+  } catch (error) {
+    console.error("Erreur profil :", error.message);
+    profilClient.value = null;
+  }
+};
+
+const executerConnexion = async () => {
+  messageErreur.value = '';
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: emailInput.value,
+      password: motDePasseInput.value,
+    });
+    if (error) throw error;
+    afficherFormulaireAuth.value = false;
+  } catch (error) {
+    messageErreur.value = `Erreur : ${error.message}`;
+  }
+};
+
+const executerInscription = async () => {
+  messageErreur.value = '';
+  if (!nomInput.value) {
+    messageErreur.value = "Le nom est requis.";
+    return;
+  }
+  try {
+    const { error } = await supabase.auth.signUp({
+      email: emailInput.value,
+      password: motDePasseInput.value,
+      options: { data: { nom: nomInput.value } }
+    });
+    if (error) throw error;
+    afficherFormulaireAuth.value = false;
+  } catch (error) {
+    messageErreur.value = `Erreur : ${error.message}`;
+  }
+};
+
+const executerDeconnexion = async () => {
+
+  // Création d'une promesse de timeout (3 secondes) pour éviter le gel
+  const timeout = new Promise((_, reject) => 
+    setTimeout(() => reject(new Error("Timeout: Supabase ne répond pas")), 3000)
+  );
+
+  try {
+    // On court-circuite le gel : soit le signOut finit, soit le timeout coupe
+    await Promise.race([supabase.auth.signOut(), timeout]);
+  } catch (error) {
+    console.warn("[Déconnexion] Supabase n'a pas répondu, nettoyage local forcé.", error.message);
+  } finally {
+    // Dans tous les cas, on nettoie les variables locales
+    session.value = null;
+    utilisateur.value = null;
+    profilClient.value = null;
+    
+    // Purge totale du localStorage pour être certain
+    localStorage.clear();
+    
+    // Rechargement forcé
+    window.location.reload();
+  }
+};
+// Écouteur de session en temps réel
+onMounted(() => {
+  supabase.auth.onAuthStateChange(async (event, sessionActuelle) => {
+    session.value = sessionActuelle;
+    utilisateur.value = sessionActuelle?.user || null;
+    if (sessionActuelle?.user) {
+      await recupererProfilMetier(sessionActuelle.user.id);
+      if (profilClient.value?.nom && typeof nomClient !== 'undefined') {
+        nomClient.value = profilClient.value.nom;
+      }
+    }
+  });
+});
+
+// Fonction de commande WhatsApp
 const commanderSurWhatsApp = () => {
   // 1. Validation des champs obligatoires
   if (!nomClient.value || !dateCommande.value) {
@@ -341,9 +473,9 @@ const commanderSurWhatsApp = () => {
   panier.value.forEach(item => {
     message += `• ${item.titre}\n`;
     if (item.varianteChoisie?.nom) {
-      message += `  ${item.varianteChoisie.nom}\n`;
+      message += `   ${item.varianteChoisie.nom}\n`;
     }
-    message += `  ${item.prix} €\n\n`;
+    message += `   ${item.prix} €\n\n`;
   });
 
   message += `━━━━━━━━━━━━━━━━━━\n\n`;
@@ -361,48 +493,79 @@ const commanderSurWhatsApp = () => {
   // 3. Variables de routage
   const numeroVendeur = "262639610515";
   const texteEncode = encodeURIComponent(message);
-  
+
   // 4. Analyse de l'environnement (Détection Mobile vs Desktop)
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  // 5. Exécution de la redirection conditionnelle
+  // 5. Exécution de la redirection
   if (isMobile) {
-    // Protocole natif pour mobile : contourne les bugs d'encodage des navigateurs mobiles
     window.location.href = `whatsapp://send?phone=${numeroVendeur}&text=${texteEncode}`;
   } else {
-    // API Web pour PC : ouvre un nouvel onglet vers WhatsApp Web
-// 4. Analyse de l'environnement (Détection Mobile vs Desktop)
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-  // 5. Exécution de la redirection conditionnelle
-  if (isMobile) {
-    // Protocole natif pour mobile : contourne les bugs d'encodage des navigateurs mobiles
-    window.location.href = `whatsapp://send?phone=${numeroVendeur}&text=${texteEncode}`;
-  } else {
-    // Routeur universel pour PC : restaure la page proposant d'ouvrir l'application Windows
     window.open(`https://api.whatsapp.com/send?phone=${numeroVendeur}&text=${texteEncode}`, '_blank');
-  }
   }
 };
 // ... existing code ...
 </script>
 
 <template>
+  <div id="app">
+    <EnTete 
+      :utilisateur="utilisateur" 
+      :profilClient="profilClient"
+      :panierLength="panier.length"
+      @toggle-vendeur="modeVendeur = !modeVendeur"
+      @open-panier="panierOuvert = true"
+      @deconnexion="executerDeconnexion"
+      @open-auth="afficherFormulaireAuth = true" 
+    />
+  </div>
+
+
+  <!-- MODALE D'AUTHENTIFICATION -->
+  <div v-if="afficherFormulaireAuth && !utilisateur" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
+    <div class="modal-auth">
+      <button class="bouton-fermer-auth" @click="afficherFormulaireAuth = false">✖</button>
+      
+      <div class="en-tete-auth">
+        <h2>{{ estModeInscription ? 'Créer un compte' : 'Bon retour' }}</h2>
+        <p>{{ estModeInscription ? 'Rejoignez notre boutique locale.' : 'Connectez-vous pour continuer.' }}</p>
+      </div>
+
+      <div v-if="messageErreur" class="alerte-erreur">
+        ⚠️ {{ messageErreur }}
+      </div>
+
+      <form @submit.prevent="estModeInscription ? executerInscription() : executerConnexion()" class="formulaire-auth">
+        
+        <div v-if="estModeInscription" class="groupe-champ">
+          <label>Nom complet</label>
+          <input type="text" v-model="nomInput" placeholder="Ex: Ibrahim" required />
+        </div>
+
+        <div class="groupe-champ">
+          <label>Adresse Email</label>
+          <input type="email" v-model="emailInput" placeholder="nom@exemple.com" required />
+        </div>
+
+        <div class="groupe-champ">
+          <label>Mot de passe</label>
+          <input type="password" v-model="motDePasseInput" placeholder="••••••••" required />
+        </div>
+
+        <button type="submit" class="bouton-valider-auth">
+          {{ estModeInscription ? "Créer mon compte" : "Se connecter" }}
+        </button>
+      </form>
+
+      <div class="pied-auth">
+        <p @click="estModeInscription = !estModeInscription" class="lien-bascule">
+          {{ estModeInscription ? 'Déjà un compte ? Connectez-vous' : 'Pas de compte ? Inscrivez-vous' }}
+        </p>
+      </div>
+    </div>
+  </div>
+
   <main>
-    <header class="en-tete">
-      <div>
-        <h1>Ma Boutique Locale</h1>
-        <p class="sous-titre">Une expérience gourmande et pratique, pensée pour mobile : plats locaux, locations faciles et commandes rapides.</p>
-      </div>
-      <div class="actions-entete">
-        <button class="bouton-vendeur" @click="modeVendeur = !modeVendeur">
-          {{ modeVendeur ? 'Quitter Mode Vendeur' : '👨‍💼 Accès Vendeur' }}
-        </button>
-        <button class="panier-encart" @click="panierOuvert = true">
-          🛒 Panier : {{ panier.length }}
-        </button>
-      </div>
-    </header>
 
     <div v-show="!modeVendeur">
       <section class="recherche-section">
@@ -544,7 +707,7 @@ const commanderSurWhatsApp = () => {
 
     <div :class="['notification', { 'visible': notification.active }]">{{ notification.message }}</div>
        
-  <PanneauVendeur 
+   <PanneauVendeur 
      v-if="modeVendeur"
      :produits="produits" 
      :equipements="equipements" 
@@ -568,6 +731,147 @@ main {
   background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
   color: #2c2520;
   padding: 18px 16px 44px;
+}
+
+/* --- STYLES DE LA MODALE D'AUTHENTIFICATION --- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 25, 0.65);
+  backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.modal-auth {
+  background: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.2);
+  position: relative;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.bouton-fermer-auth {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: #f4f6f8;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #6b7b8c;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s;
+}
+
+.bouton-fermer-auth:hover {
+  background: #e1e8ed;
+  color: #1f2833;
+}
+
+.en-tete-auth h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.8rem;
+  color: #3b302a;
+  margin: 0 0 8px 0;
+}
+
+.en-tete-auth p {
+  font-family: 'Inter', sans-serif;
+  color: #6b7b8c;
+  font-size: 0.95rem;
+  margin: 0 0 24px 0;
+}
+
+.alerte-erreur {
+  background: #fdf2f2;
+  color: #b35034;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  border: 1px solid #fad5d5;
+}
+
+.formulaire-auth .groupe-champ {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+
+.formulaire-auth label {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 8px;
+}
+
+.formulaire-auth input {
+  padding: 14px 16px;
+  border: 1px solid #d1d9e0;
+  border-radius: 14px;
+  background: #f8fafc;
+  font-size: 1rem;
+  color: #1f2833;
+  transition: all 0.2s;
+}
+
+.formulaire-auth input:focus {
+  outline: none;
+  border-color: #74b4aa;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(116, 180, 170, 0.15);
+}
+
+.bouton-valider-auth {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: #3b302a;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.bouton-valider-auth:hover {
+  background: #2c2520;
+}
+
+.pied-auth {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.lien-bascule {
+  color: #74b4aa;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin: 0;
+}
+
+.lien-bascule:hover {
+  text-decoration: underline;
 }
 
 .en-tete {
