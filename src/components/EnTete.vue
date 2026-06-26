@@ -29,9 +29,13 @@ defineEmits(['toggle-vendeur', 'open-panier', 'deconnexion', 'open-auth'])
         <button class="bouton-auth action-principale" @click="$emit('open-auth')">Connexion / Inscription</button>
       </template>
 
-      <button class="bouton-vendeur" @click="$emit('toggle-vendeur')">
-        👨‍💼 ESPACE VENDEUR
-      </button>
+      <button 
+  v-if="utilisateur && profilClient?.role === 'super_admin'" 
+  class="bouton-vendeur" 
+  @click="$emit('toggle-vendeur')"
+>
+  👨‍💼 ESPACE VENDEUR
+</button>
       
       <div class="panier-wrapper">
         <button class="panier-encart" @click="$emit('open-panier')">

@@ -1,116 +1,204 @@
 <script setup>
+import { ref, computed } from 'vue';
+
+// On reçoit les données de l'équipement depuis App.vue
 const props = defineProps({
-  equipement: {
-    type: Object,
-    required: true
-  }
-})
+  equipement: Object
+});
 
-const emit = defineEmits(['ajouter-panier'])
+// On déclare l'événement pour envoyer l'article dans le panier
+const emit = defineEmits(['ajouter-equipement']);
 
-const ajouterAuPanier = () => {
-  emit('ajouter-panier', {
-    idUnique: props.equipement.id,
-    titre: props.equipement.titre,
-    prix: props.equipement.prix_journalier,
-    quantite: 1
-  })
-}
+const dateDebut = ref('');
+const dateFin = ref('');
+
+// Date minimale (Aujourd'hui) pour bloquer la sélection de dates passées
+const dateAujourdhui = computed(() => new Date().toISOString().split('T')[0]);
+
+// Validation : Les deux dates doivent être remplies et la fin doit être supérieure ou égale au début
+const periodeValide = computed(() => {
+  if (!dateDebut.value || !dateFin.value) return false;
+  return new Date(dateFin.value) >= new Date(dateDebut.value);
+});
+
+// Calcul du nombre de jours
+const joursLocation = computed(() => {
+  if (!periodeValide.value) return 0;
+  const diffTemps = new Date(dateFin.value) - new Date(dateDebut.value);
+  const diffJours = Math.ceil(diffTemps / (1000 * 60 * 60 * 24));
+  return diffJours === 0 ? 1 : diffJours; // Minimum 1 jour facturé
+});
+
+const preparerMiseAuPanier = () => {
+  if (!periodeValide.value) return;
+
+  // Création du paquet de données envoyé au panier
+  const payloadLocation = {
+    ...props.equipement,
+    typeElement: 'location',
+    dateDebutSelectionnee: dateDebut.value,
+    dateFinSelectionnee: dateFin.value,
+    dureeJours: joursLocation.value,
+    // Le prix total est calculé dynamiquement
+    prixTotalLocation: props.equipement.prix * joursLocation.value
+  };
+
+  emit('ajouter-equipement', payloadLocation);
+  
+  // Réinitialisation des champs après l'ajout pour la prochaine sélection
+  dateDebut.value = '';
+  dateFin.value = '';
+};
 </script>
 
 <template>
-  <div class="carte-equipement">
-    <img :src="equipement.image_url" :alt="equipement.titre" class="image-produit" />
-    <h3>{{ equipement.titre }}</h3>
-    <p>{{ equipement.description }}</p>
-    <p class="prix"><strong>Prix par jour :</strong> {{ equipement.prix_journalier }} €</p>
-    <button @click="ajouterAuPanier" class="bouton-ajout">Réserver</button>
+  <div class="carte-element">
+    <div class="image-container">
+      <img :src="equipement.image_url" :alt="equipement.nom" />
+    </div>
+    
+    <div class="contenu-carte">
+      <h3>{{ equipement.nom }}</h3>
+      <p class="description">{{ equipement.description }}</p>
+      <p class="prix">{{ equipement.prix }} € / jour</p>
+
+      <div class="zone-reservation">
+        <div class="champ-date">
+          <label>Date de début</label>
+          <input type="date" v-model="dateDebut" :min="dateAujourdhui" />
+        </div>
+        <div class="champ-date">
+          <label>Date de fin</label>
+          <input type="date" v-model="dateFin" :min="dateDebut || dateAujourdhui" />
+        </div>
+      </div>
+
+      <div v-if="periodeValide" class="recap-prix">
+        Total pour {{ joursLocation }} jour(s) : <strong>{{ equipement.prix * joursLocation }} €</strong>
+      </div>
+
+      <button 
+        @click="preparerMiseAuPanier" 
+        :disabled="!periodeValide"
+        class="bouton-ajouter"
+        :class="{ 'bouton-desactive': !periodeValide }"
+      >
+        {{ periodeValide ? 'Ajouter au panier' : 'Sélectionnez vos dates' }}
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.carte-equipement {
-  position: relative;
+.carte-element {
+  background: #ffffff;
+  border-radius: 16px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  border-radius: 28px;
-  padding: 18px;
-  box-shadow: 0 24px 70px rgba(31, 40, 51, 0.08);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #f0f0f0;
 }
 
-.carte-equipement::after {
-  content: '';
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: rgba(240, 138, 93, 0.12);
-  top: -30px;
-  right: -30px;
-  pointer-events: none;
-}
-
-.carte-equipement:hover {
-  transform: translateY(-2px);
-}
-
-.image-produit {
+.image-container img {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 200px;
   object-fit: cover;
-  border-radius: 24px;
-  margin-bottom: 14px;
-  box-shadow: inset 0 2px 16px rgba(0, 0, 0, 0.08);
 }
 
-.carte-equipement h3 {
-  margin: 0 0 8px;
-  font-size: 1.1rem;
-  color: #1f2833;
+.contenu-carte {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
-.carte-equipement p {
+h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem;
+  color: #3b302a;
+  margin: 0 0 10px 0;
+}
+
+.description {
+  font-family: 'Inter', sans-serif;
   color: #6b7b8c;
-  line-height: 1.6;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  flex-grow: 1;
 }
 
 .prix {
-  margin: 12px 0;
-  font-weight: 600;
-  color: #b35034;
-}
-
-.bouton-ajout {
-  width: 100%;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, #f08a5d, #f7b872);
-  color: white;
   font-weight: 700;
-  box-shadow: 0 18px 40px rgba(240, 138, 93, 0.18);
-  margin-top: 12px;
+  color: #bc6c46;
+  font-size: 1.2rem;
+  margin-bottom: 15px;
+}
+
+.zone-reservation {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  background: #f8fafc;
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.champ-date {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+}
+
+.champ-date label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 6px;
+}
+
+.champ-date input {
+  padding: 8px;
+  border: 1px solid #d1d9e0;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  outline: none;
+}
+
+.champ-date input:focus {
+  border-color: #74b4aa;
+}
+
+.recap-prix {
+  font-size: 0.9rem;
+  color: #1a5653;
+  background: #eef7f6;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.bouton-ajouter {
+  background: #3b302a;
+  color: white;
   border: none;
-  border-radius: 20px;
+  padding: 12px;
+  border-radius: 99px;
+  font-weight: 600;
   cursor: pointer;
-  transition: transform 0.18s ease, opacity 0.18s ease;
-  animation: pulseGlow 5s ease-in-out infinite;
+  transition: background 0.2s;
+  margin-top: auto; /* Pousse le bouton vers le bas de la carte */
 }
 
-.bouton-ajout:hover {
-  transform: translateY(-1px);
-  opacity: 0.98;
+.bouton-ajouter:not(.bouton-desactive):hover {
+  background: #2c2520;
 }
 
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 18px 40px rgba(240, 138, 93, 0.18); }
-  50% { box-shadow: 0 24px 50px rgba(240, 138, 93, 0.24); }
-}
-
-@media (max-width: 640px) {
-  .carte-equipement {
-    border-radius: 24px;
-    padding: 16px;
-  }
+.bouton-desactive {
+  background: #f4f6f8;
+  color: #a0aec0;
+  cursor: not-allowed;
+  border: 1px solid #d1d9e0;
 }
 </style>

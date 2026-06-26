@@ -33,10 +33,17 @@ const totalGénéral = computed(() => {
 const modifierQuantite = (idUnique, changement) => {
   const index = props.panier.findIndex(item => item.idUnique === idUnique)
   if (index !== -1) {
-    props.panier[index].quantite += changement
-    if (props.panier[index].quantite <= 0) props.panier.splice(index, 1)
-    emit('update-panier', props.panier)
-    if (props.panier.length === 0) emit('close-panier')
+    const nouveauPanier = [...props.panier]
+    const nouvelleQuantite = nouveauPanier[index].quantite + changement
+    
+    if (nouvelleQuantite <= 0) {
+      nouveauPanier.splice(index, 1)
+    } else {
+      nouveauPanier[index] = { ...nouveauPanier[index], quantite: nouvelleQuantite }
+    }
+    
+    emit('update-panier', nouveauPanier)
+    if (nouveauPanier.length === 0) emit('close-panier')
   }
 }
 
@@ -60,7 +67,14 @@ const commanderSurWhatsApp = () => {
   message += `--------------------------\n`
   
   props.panier.forEach(item => {
-    message += `- ${item.quantite}x ${item.titre} - ${item.prix * item.quantite} €\n`
+    // Utilisation de item.titre ou item.nom pour garantir la compatibilité
+    message += `- ${item.quantite}x ${item.titre || item.nom} - ${item.prix * item.quantite} €\n`
+    
+    // Ajout spécifique si l'article est un équipement en location
+    if (item.typeElement === 'location') {
+      message += `  📅 Du ${item.dateDebutSelectionnee} au ${item.dateFinSelectionnee}\n`
+      message += `  ⏳ Durée : ${item.dureeJours} jour(s)\n`
+    }
   })
   
   message += `--------------------------\n`
@@ -73,369 +87,297 @@ const commanderSurWhatsApp = () => {
 </script>
 
 <template>
-  <div v-if="panierOuvert" class="fond-sombre" @click.self="$emit('close-panier')">
-    <div class="tiroir-panier">
-      <div class="entete-tiroir">
-        <h2>Votre Commande</h2>
-        <button @click="$emit('close-panier')" class="bouton-fermer">✖</button>
+  <div v-if="panierOuvert" class="panier-overlay" @click.self="$emit('close-panier')">
+    <div class="panier-tiroir">
+      
+      <div class="en-tete-tiroir">
+        <h2>Votre Panier</h2>
+        <button class="bouton-fermer" @click="$emit('close-panier')">✖</button>
       </div>
 
-      <div v-if="panier.length === 0" class="panier-vide">Votre panier est vide.</div>
+      <div v-if="panier.length === 0" class="panier-vide">
+        <span class="emoji-vide">🛒</span>
+        <p>Votre panier est actuellement vide.</p>
+      </div>
 
       <div v-else class="contenu-panier">
-        <ul class="liste-panier">
-          <li v-for="item in panier" :key="item.idUnique" class="item-panier">
-            <div class="info-item">
-              <span class="titre-item">{{ item.titre }}</span>
-              <span class="prix-item">{{ item.prix }} € / unité</span>
+        <div class="liste-articles">
+          <div v-for="item in panier" :key="item.idUnique" class="article-item">
+            <div class="infos-article">
+              <h4>{{ item.titre || item.nom }}</h4>
+              
+              <div v-if="item.typeElement === 'location'" class="details-location">
+                📅 Du {{ item.dateDebutSelectionnee }} au {{ item.dateFinSelectionnee }}<br>
+                ⏳ Durée : {{ item.dureeJours }} jour(s)
+              </div>
+              
+              <p class="prix-unitaire">{{ item.prix }} € / unité</p>
             </div>
-            <div class="controle-quantite">
+            
+            <div class="actions-quantite">
               <button @click="modifierQuantite(item.idUnique, -1)">-</button>
-              <span>{{ item.quantite }}</span>
+              <span class="quantite-texte">{{ item.quantite }}</span>
               <button @click="modifierQuantite(item.idUnique, 1)">+</button>
             </div>
-          </li>
-        </ul>
+          </div>
+        </div>
 
-        <div class="zone-livraison">
-          <h3>Mode de récupération</h3>
+        <div class="formulaire-logistique">
+          <div class="groupe-champ">
+            <label>Nom complet</label>
+            <input type="text" v-model="nomClient" placeholder="Ex: Ibrahim Ali" />
+          </div>
           
-          <div class="options-radio">
-            <label>
-              <input type="radio" v-model="modeLivraison" value="retrait" />
-              Click & Collect (Retrait)
-            </label>
-            <label>
-              <input type="radio" v-model="modeLivraison" value="livraison" />
-              Livraison locale (+2 €)
-            </label>
+          <div class="groupe-champ">
+            <label>Date souhaitée (Récupération)</label>
+            <input type="date" v-model="dateCommande" />
           </div>
 
-          <div v-if="modeLivraison === 'retrait'" class="sous-options">
-            <label>Lieu du retrait :</label>
-            <select v-model="lieuRetrait">
-              <option value="dzaoudzi">Dzaoudzi (Petite-Terre) - Gratuit</option>
-              <option value="mamoudzou">Mamoudzou (Au pied de la barge) - +3 €</option>
+          <div class="groupe-champ">
+            <label>Mode de réception</label>
+            <select v-model="modeLivraison">
+              <option value="retrait">Retrait au point de rendez-vous</option>
+              <option value="livraison">Livraison (+2€)</option>
             </select>
           </div>
 
-          <div v-if="modeLivraison === 'livraison'" class="info-livraison">
-            📍 Livraison uniquement en Petite-Terre.
+          <div v-if="modeLivraison === 'retrait'" class="groupe-champ">
+            <label>Lieu de retrait</label>
+            <select v-model="lieuRetrait">
+              <option value="dzaoudzi">Dzaoudzi (Petite-Terre) - Gratuit</option>
+              <option value="mamoudzou">Pied de la barge (Mamoudzou) - Navette +3€</option>
+            </select>
           </div>
         </div>
 
-        <div class="formulaire-client">
-          <h3>Vos Informations</h3>
-          <input type="text" v-model="nomClient" placeholder="Votre nom complet" />
-          <label>Date souhaitée :</label>
-          <input type="date" v-model="dateCommande" />
+        <div class="recapitulatif">
+          <div class="ligne-recap">
+            <span>Sous-total</span>
+            <span>{{ totalArticles }} €</span>
+          </div>
+          <div class="ligne-recap">
+            <span>Frais logistiques</span>
+            <span>{{ fraisLogistique }} €</span>
+          </div>
+          <div class="ligne-recap total-final">
+            <span>Total à payer</span>
+            <span>{{ totalGénéral }} €</span>
+          </div>
         </div>
 
-        <div class="pied-tiroir">
-          <div class="details-calcul">
-            <p>Articles : {{ totalArticles }} €</p>
-            <p>Logistique : {{ fraisLogistique }} €</p>
-            <p class="total">Total : <strong>{{ totalGénéral }} €</strong></p>
-          </div>
-          <button @click="commanderSurWhatsApp" class="bouton-whatsapp">Commander via WhatsApp</button>
-        </div>
+        <button class="bouton-commander" @click="commanderSurWhatsApp">
+          📱 Commander via WhatsApp
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.fond-sombre {
+.panier-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(18, 20, 26, 0.55);
-  z-index: 1000;
+  background: rgba(15, 20, 25, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 3000;
   display: flex;
   justify-content: flex-end;
-  padding: 20px 0 20px 20px;
 }
 
-.tiroir-panier {
-  width: min(420px, 100%);
-  height: 100%;
-  background: rgba(255, 255, 255, 0.98);
-  padding: 24px;
+.panier-tiroir {
+  width: 100%;
+  max-width: 450px;
+  background: #ffffff;
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  overflow: hidden;
+  box-shadow: -10px 0 30px rgba(0,0,0,0.1);
+  animation: slideLeft 0.3s ease-out;
 }
 
-.entete-tiroir {
+@keyframes slideLeft {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.en-tete-tiroir {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  padding: 24px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.entete-tiroir h2 {
+.en-tete-tiroir h2 {
+  font-family: 'Playfair Display', serif;
   margin: 0;
-  font-size: 1.2rem;
-  color: #1f2833;
+  color: #3b302a;
 }
 
 .bouton-fermer {
-  width: 44px;
-  height: 44px;
+  background: #f4f6f8;
+  border: none;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #2c3e50;
-  color: white;
+  cursor: pointer;
+  color: #6b7b8c;
   display: grid;
   place-items: center;
-  cursor: pointer;
-  border: none;
-  transition: transform 0.18s ease;
-}
-
-.bouton-fermer:hover {
-  transform: translateY(-2px);
 }
 
 .panier-vide {
-  text-align: center;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   color: #6b7b8c;
-  padding: 40px 20px;
+}
+
+.emoji-vide {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.5;
 }
 
 .contenu-panier {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  height: 100%;
   overflow-y: auto;
-  gap: 18px;
+  padding: 24px;
 }
 
-.liste-panier {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: 14px;
-}
-
-.item-panier {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 12px;
-  align-items: center;
-  padding: 14px;
-  background: rgba(240, 138, 93, 0.06);
-  border-radius: 20px;
-}
-
-.info-item {
+.liste-articles {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 16px;
+  margin-bottom: 32px;
 }
 
-.titre-item {
-  font-weight: 700;
+.article-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #eff2f5;
+}
+
+.infos-article h4 {
+  margin: 0 0 6px 0;
+  font-family: 'Inter', sans-serif;
   color: #1f2833;
 }
 
-.prix-item {
+.details-location {
+  font-size: 0.85em;
+  color: #74b4aa;
+  margin-bottom: 8px;
+  font-weight: 600;
+  background: #eef7f6;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.prix-unitaire {
+  margin: 0;
+  font-size: 0.9rem;
   color: #6b7b8c;
+}
+
+.actions-quantite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #d1d9e0;
+}
+
+.actions-quantite button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-weight: bold;
+  color: #3b302a;
+}
+
+.quantite-texte {
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+.formulaire-logistique {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.groupe-champ {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupe-champ label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.groupe-champ input, .groupe-champ select {
+  padding: 12px;
+  border: 1px solid #d1d9e0;
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  background: #ffffff;
+}
+
+.recapitulatif {
+  background: #f4f6f8;
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+
+.ligne-recap {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  color: #4a5568;
   font-size: 0.95rem;
 }
 
-.controle-quantite {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: white;
-  border-radius: 999px;
-  padding: 6px 10px;
-  border: 1px solid rgba(31, 40, 51, 0.08);
-}
-
-.controle-quantite button {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(31, 40, 51, 0.12);
-  background: white;
-  color: #1f2833;
-  cursor: pointer;
-  transition: transform 0.18s ease;
-}
-
-.controle-quantite button:hover {
-  transform: translateY(-1px);
-}
-
-.zone-livraison {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 24px;
-  padding: 18px;
-  border: 1px solid rgba(31, 40, 51, 0.08);
-}
-
-.zone-livraison h3 {
-  margin: 0 0 12px;
-  font-size: 1rem;
-  color: #1f2833;
-}
-
-.options-radio {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.options-radio label {
-  padding: 12px 14px;
-  border-radius: 18px;
-  border: 1px solid rgba(31, 40, 51, 0.08);
-  background: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #1f2833;
-}
-
-.sous-options {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(31, 40, 51, 0.08);
-}
-
-.sous-options label {
-  display: block;
-  color: #6b7b8c;
-  font-size: 0.9rem;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.sous-options select {
-  width: 100%;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(31, 40, 51, 0.12);
-  background: white;
-  color: #1f2833;
-  font-size: 1rem;
-}
-
-.info-livraison {
-  font-size: 0.9rem;
-  color: #2b6cb0;
-  font-style: italic;
-  margin-top: 10px;
-}
-
-.formulaire-client {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 24px;
-  padding: 18px;
-  border: 1px solid rgba(31, 40, 51, 0.08);
-}
-
-.formulaire-client h3 {
-  margin: 0 0 12px;
-  font-size: 1rem;
-  color: #1f2833;
-}
-
-.formulaire-client input {
-  width: 100%;
-  padding: 14px 16px;
-  margin-bottom: 10px;
-  border-radius: 16px;
-  border: 1px solid rgba(31, 40, 51, 0.12);
-  background: white;
-  color: #1f2833;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-.formulaire-client label {
-  display: block;
-  color: #6b7b8c;
-  font-size: 0.9rem;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-
-.pied-tiroir {
-  margin-top: auto;
-}
-
-.details-calcul {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 24px;
-  padding: 18px;
-  border: 1px solid rgba(31, 40, 51, 0.08);
-  display: grid;
-  gap: 10px;
-  margin-bottom: 15px;
-}
-
-.details-calcul p {
-  margin: 0;
-  display: flex;
-  justify-content: space-between;
-  color: #6b7b8c;
-}
-
-.details-calcul .total {
-  font-size: 1.15rem;
-  color: #1f2833;
+.total-final {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid #e1e8ed;
   font-weight: 700;
+  font-size: 1.2rem;
+  color: #3b302a;
+  margin-bottom: 0;
 }
 
-.bouton-whatsapp {
-  width: 100%;
-  padding: 16px 18px;
-  background: linear-gradient(135deg, #25D366, #1ebd58);
+.bouton-commander {
+  background: #3b302a;
   color: white;
-  font-weight: 700;
-  border-radius: 18px;
   border: none;
+  padding: 16px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 20px 45px rgba(37, 211, 102, 0.2);
-  transition: transform 0.18s ease, opacity 0.18s ease;
-  animation: pulseGlow 5s ease-in-out infinite;
+  transition: background 0.2s;
+  margin-bottom: 24px;
 }
 
-.bouton-whatsapp:hover {
-  transform: translateY(-1px);
-  opacity: 0.98;
-}
-
-@keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 20px 45px rgba(37, 211, 102, 0.2); }
-  50% { box-shadow: 0 28px 55px rgba(37, 211, 102, 0.28); }
-}
-
-@media (max-width: 640px) {
-  .fond-sombre {
-    padding: 14px 0 0 0;
-    justify-content: center;
-    align-items: flex-end;
-  }
-
-  .tiroir-panier {
-    width: 100%;
-    border-top-left-radius: 28px;
-    border-top-right-radius: 28px;
-    padding: 20px;
-  }
-
-  .entete-tiroir {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .bouton-fermer {
-    border-radius: 16px;
-  }
+.bouton-commander:hover {
+  background: #2c2520;
 }
 </style>
