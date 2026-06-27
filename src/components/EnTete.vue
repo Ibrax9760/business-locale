@@ -1,195 +1,240 @@
 <script setup>
-defineProps({
+import { ref } from 'vue'
+
+const props = defineProps({
   utilisateur: Object,
   profilClient: Object,
   panierLength: Number
 })
 
-defineEmits(['toggle-vendeur', 'open-panier', 'deconnexion', 'open-auth'])
+const emit = defineEmits(['toggle-vendeur', 'open-panier', 'deconnexion', 'open-auth'])
+
+// État réactif pour le menu contextuel de l'utilisateur
+const menuUtilisateurOuvert = ref(false)
+
+// Routage conditionnel du clic sur l'icône profil
+const gererClicUtilisateur = () => {
+  if (!props.utilisateur) {
+    emit('open-auth')
+  } else {
+    menuUtilisateurOuvert.value = !menuUtilisateurOuvert.value
+  }
+}
+
+// Fonctions relais fermant le menu avant d'émettre l'action
+const actionnerDeconnexion = () => {
+  menuUtilisateurOuvert.value = false
+  emit('deconnexion')
+}
+
+const actionnerVendeur = () => {
+  menuUtilisateurOuvert.value = false
+  emit('toggle-vendeur')
+}
 </script>
 
 <template>
-  <header class="en-tete">
-    <div class="identite-visuelle">
-      <div class="logo-container">
-        <span class="logo-emoji">🧺</span>
-      </div>
-      <div class="titre-container">
-        <h1>MA BOUTIQUE LOCALE</h1>
-        <p class="sous-titre">Une expérience gourmande et pratique, pensée pour mobile : plats locaux, locations faciles et commandes rapides.</p>
-      </div>
-    </div>
+  <header class="navbar-premium">
+    
+    <div class="nav-zone nav-gauche">
+      <button class="bouton-icone" @click="gererClicUtilisateur" aria-label="Profil utilisateur">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
 
-    <div class="actions-entete">
-      <template v-if="utilisateur">
-        <span class="greeting">Bonjour, <strong>{{ profilClient?.nom || 'Ibrahim' }}</strong></span>
-        <button class="bouton-auth" @click="$emit('deconnexion')">Déconnexion</button>
-      </template>
-      <template v-else>
-        <button class="bouton-auth action-principale" @click="$emit('open-auth')">Connexion / Inscription</button>
-      </template>
-
-      <button 
-  v-if="utilisateur && profilClient?.role === 'super_admin'" 
-  class="bouton-vendeur" 
-  @click="$emit('toggle-vendeur')"
->
-  👨‍💼 ESPACE VENDEUR
-</button>
-      
-      <div class="panier-wrapper">
-        <button class="panier-encart" @click="$emit('open-panier')">
-          🛒 PANIER
+      <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel">
+        <div class="menu-en-tete">
+          <span class="menu-nom">{{ profilClient?.nom || 'Mon Profil' }}</span>
+        </div>
+        
+        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click="actionnerVendeur">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Espace Vendeur
         </button>
-        <span class="badge-notification" v-if="panierLength >= 0">{{ panierLength }}</span>
+        
+        <button class="menu-action action-danger" @click="actionnerDeconnexion">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Déconnexion
+        </button>
       </div>
     </div>
+
+    <div class="nav-zone nav-centre">
+      <h1 class="titre-marque">MA BOUTIQUE LOCALE</h1>
+    </div>
+
+    <div class="nav-zone nav-droite">
+      <button class="bouton-icone" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        <span v-if="panierLength > 0" class="badge-panier">{{ panierLength }}</span>
+      </button>
+    </div>
+
   </header>
+
+  <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click="menuUtilisateurOuvert = false"></div>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600&display=swap');
-
-.en-tete {
+/* Architecture de la Navbar */
+.navbar-premium {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-  margin-bottom: 32px;
-}
-
-.identite-visuelle {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  max-width: 600px;
-}
-
-.logo-container {
-  font-size: 3rem;
-  line-height: 1;
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-}
-
-.titre-container h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: #3b302a;
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.titre-container .sous-titre {
-  font-family: 'Inter', sans-serif;
-  color: #2c2520;
-  margin-top: 6px;
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.actions-entete {
-  display: flex;
-  gap: 16px;
   align-items: center;
-  flex-wrap: wrap;
+  padding: 16px 20px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  /* Effet verre dépoli adaptatif (translucide) */
+  background-color: rgba(var(--bg-rgb, 15, 20, 25), 0.02);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
 }
 
-/* Nouveaux styles pour l'authentification */
-.greeting {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.95rem;
-  color: #3b302a;
+.nav-zone {
+  display: flex;
+  align-items: center;
 }
 
-.bouton-auth {
-  font-family: 'Inter', sans-serif;
-  padding: 10px 20px;
-  border-radius: 9999px;
-  background: #f4f6f8;
-  color: #3b302a;
-  font-weight: 600;
-  font-size: 0.85rem;
-  border: 1px solid #d1d9e0;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
+.nav-gauche { flex: 1; justify-content: flex-start; position: relative; }
+.nav-centre { flex: 2; justify-content: center; }
+.nav-droite { flex: 1; justify-content: flex-end; }
 
-.bouton-auth:hover { background: #e1e8ed; }
-
-.action-principale {
-  background: #3b302a;
-  color: white;
-  border: none;
-}
-.action-principale:hover { background: #2c2520; }
-
-/* Styles originaux restaurés */
-.bouton-vendeur {
-  font-family: 'Inter', sans-serif;
-  padding: 12px 24px;
-  border-radius: 9999px;
-  background: linear-gradient(135deg, #bc6c46, #d98f6a);
-  color: white;
-  font-weight: 600;
-  font-size: 0.85rem;
-  border: none;
-  box-shadow: 0 8px 24px rgba(188, 108, 70, 0.3);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.bouton-vendeur:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(188, 108, 70, 0.4);
-}
-
-.panier-wrapper { position: relative; }
-
-.panier-encart {
-  font-family: 'Inter', sans-serif;
-  background: linear-gradient(135deg, #74b4aa, #8bc9bf);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 9999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  border: none;
-  box-shadow: 0 8px 24px rgba(116, 180, 170, 0.3);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.panier-encart:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(116, 180, 170, 0.4);
-}
-
-.badge-notification {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background-color: #1a5653;
-  color: white;
-  font-family: 'Inter', sans-serif;
-  font-size: 0.75rem;
+/* Typographie de la marque */
+.titre-marque {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
   font-weight: 700;
-  min-width: 22px;
-  height: 22px;
-  border-radius: 50%;
+  margin: 0;
+  letter-spacing: 0.5px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Boutons Iconographiques */
+.bouton-icone {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #f6f3ef;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  position: relative;
+  transition: opacity 0.2s;
 }
 
-@media (max-width: 640px) {
-  .en-tete { flex-direction: column; gap: 20px; }
-  .identite-visuelle { flex-direction: column; gap: 12px; }
-  .titre-container h1 { font-size: 1.8rem; }
-  .actions-entete { width: 100%; justify-content: flex-start; }
+.bouton-icone:active {
+  opacity: 0.6;
+}
+
+.bouton-icone svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Pastille (Badge) du panier */
+.badge-panier {
+  position: absolute;
+  top: 2px;
+  right: 0px;
+  background-color: #bc6c46; /* Accent chaleureux */
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  transform: translate(25%, -25%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Menu Contextuel Utilisateur (Dropdown) */
+.menu-contextuel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 12px;
+  background-color: var(--bg-dropdown, #ffffff); /* Fallback statique si variable absente */
+  border: 1px solid rgba(128, 128, 128, 0.15);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  overflow: hidden;
+  z-index: 1001;
+}
+
+/* Règle adaptative native pour le menu selon le thème de l'appareil */
+@media (prefers-color-scheme: dark) {
+  .menu-contextuel {
+    background-color: #1a1d21;
+  }
+}
+
+.menu-en-tete {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.menu-nom {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.menu-action {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.menu-action svg {
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+
+.action-danger {
+  color: #ff5c5c;
+}
+.action-danger svg {
+  opacity: 1;
+}
+
+/* Calque pour fermer le menu lors d'un clic extérieur */
+.calque-fermeture {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
 }
 </style>
