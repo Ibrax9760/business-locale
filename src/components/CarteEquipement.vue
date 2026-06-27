@@ -244,4 +244,16 @@ const reserverEquipement = () => {
 .bouton-desactive:active {
   transform: none;
 }
+
+@media (max-width: 768px) {
+  .conteneur-image {
+    margin: 12px 12px 0 12px;          /* Isole l'image des bords de la carte */
+    width: calc(100% - 24px);          /* Réduit la taille globale */
+    border-radius: 14px;               /* Applique la courbure esthétique */
+  }
+  
+  .contenu-carte {
+    padding: 16px;
+  }
+}
 </style>

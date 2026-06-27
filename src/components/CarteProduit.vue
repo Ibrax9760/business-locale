@@ -202,4 +202,16 @@ const ajouterAuPanier = () => {
 .bouton-ajouter-premium:active {
   transform: scale(0.85);
 }
+
+@media (max-width: 768px) {
+  .conteneur-image {
+    margin: 12px 12px 0 12px;          /* Isole l'image des bords de la carte */
+    width: calc(100% - 24px);          /* Réduit proportionnellement la largeur */
+    border-radius: 14px;               /* Arrondit les 4 angles de l'image */
+  }
+  
+  .contenu-carte {
+    padding: 16px;                     /* Ajuste les espacements textuels */
+  }
+}
 </style>
