@@ -5,6 +5,34 @@ import { useRouter, useRoute } from 'vue-router'
 
 
 const masquerBarreMobile = ref(false)
+let dernierePositionScroll = 0;
+
+// Algorithme d'évaluation de la direction du défilement
+const analyserDefilement = () => {
+  const positionActuelle = window.scrollY;
+
+  // Condition 1 : le défilement s'effectue vers le bas et dépasse un seuil de 50 pixels
+  if (positionActuelle > dernierePositionScroll && positionActuelle > 50) {
+    masquerBarreMobile.value = true;
+  } 
+  // Condition 2 : le défilement s'effectue vers le haut
+  else {
+    masquerBarreMobile.value = false;
+  }
+
+  // Mise à jour de la référence spatiale pour le prochain cycle d'évaluation
+  dernierePositionScroll = positionActuelle;
+};
+
+// Attachement des écouteurs lors du montage du composant
+onMounted(() => {
+  window.addEventListener('scroll', analyserDefilement);
+});
+
+// Détachement des écouteurs lors de la destruction du composant (prévention des fuites mémoire)
+onUnmounted(() => {
+  window.removeEventListener('scroll', analyserDefilement);
+});
 
 const router = useRouter()
 const route = useRoute()
