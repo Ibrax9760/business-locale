@@ -9,10 +9,8 @@ const props = defineProps({
 
 const emit = defineEmits(['toggle-vendeur', 'open-panier', 'deconnexion', 'open-auth'])
 
-// État réactif pour le menu contextuel de l'utilisateur
 const menuUtilisateurOuvert = ref(false)
 
-// Routage conditionnel du clic sur l'icône profil
 const gererClicUtilisateur = () => {
   if (!props.utilisateur) {
     emit('open-auth')
@@ -21,15 +19,15 @@ const gererClicUtilisateur = () => {
   }
 }
 
-// Fonctions relais fermant le menu avant d'émettre l'action
+// Les événements déclenchent l'action, puis ferment le menu
 const actionnerDeconnexion = () => {
-  menuUtilisateurOuvert.value = false
   emit('deconnexion')
+  menuUtilisateurOuvert.value = false
 }
 
 const actionnerVendeur = () => {
-  menuUtilisateurOuvert.value = false
   emit('toggle-vendeur')
+  menuUtilisateurOuvert.value = false
 }
 </script>
 
@@ -37,19 +35,20 @@ const actionnerVendeur = () => {
   <header class="navbar-premium">
     
     <div class="nav-zone nav-gauche">
-      <button class="bouton-icone" @click="gererClicUtilisateur" aria-label="Profil utilisateur">
+      
+      <button class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
+        <span v-if="utilisateur && profilClient?.nom" class="nom-utilisateur">{{ profilClient.nom }}</span>
       </button>
 
+      <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click.stop="menuUtilisateurOuvert = false"></div>
+
       <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel">
-        <div class="menu-en-tete">
-          <span class="menu-nom">{{ profilClient?.nom || 'Mon Profil' }}</span>
-        </div>
         
-        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click="actionnerVendeur">
+        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
             <polyline points="9 22 9 12 15 12 15 22"></polyline>
@@ -57,7 +56,7 @@ const actionnerVendeur = () => {
           Espace Vendeur
         </button>
         
-        <button class="menu-action action-danger" @click="actionnerDeconnexion">
+        <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
             <polyline points="16 17 21 12 16 7"></polyline>
@@ -69,7 +68,10 @@ const actionnerVendeur = () => {
     </div>
 
     <div class="nav-zone nav-centre">
-      <h1 class="titre-marque">MA BOUTIQUE LOCALE</h1>
+      <h1 class="titre-marque">
+        <span class="icone-panier-mignon">🧺</span>
+        MA BOUTIQUE LOCALE
+      </h1>
     </div>
 
     <div class="nav-zone nav-droite">
@@ -84,8 +86,6 @@ const actionnerVendeur = () => {
     </div>
 
   </header>
-
-  <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click="menuUtilisateurOuvert = false"></div>
 </template>
 
 <style scoped>
@@ -98,11 +98,10 @@ const actionnerVendeur = () => {
   position: sticky;
   top: 0;
   z-index: 1000;
-  /* Effet verre dépoli adaptatif (translucide) */
-  background-color: rgba(var(--bg-rgb, 15, 20, 25), 0.02);
+  background-color: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .nav-zone {
@@ -120,23 +119,44 @@ const actionnerVendeur = () => {
   font-size: 1.1rem;
   font-weight: 700;
   margin: 0;
+  color: #3b302a;
   letter-spacing: 0.5px;
   text-align: center;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-/* Boutons Iconographiques */
+.icone-panier-mignon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+/* Boutons Iconographiques et Nom utilisateur */
 .bouton-icone {
   background: transparent;
   border: none;
   padding: 8px;
   cursor: pointer;
-  color: inherit;
+  color: #3b302a;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   transition: opacity 0.2s;
+}
+
+.profil-btn {
+  gap: 8px;
+}
+
+.nom-utilisateur {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #3b302a;
 }
 
 .bouton-icone:active {
@@ -153,7 +173,7 @@ const actionnerVendeur = () => {
   position: absolute;
   top: 2px;
   right: 0px;
-  background-color: #bc6c46; /* Accent chaleureux */
+  background-color: #bc6c46;
   color: white;
   font-size: 0.7rem;
   font-weight: 700;
@@ -169,38 +189,20 @@ const actionnerVendeur = () => {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* Menu Contextuel Utilisateur (Dropdown) */
+/* Menu Contextuel Utilisateur (Dropdown) - Restructuration pour mode clair obligatoire */
 .menu-contextuel {
   position: absolute;
   top: 100%;
   left: 0;
   margin-top: 12px;
-  background-color: var(--bg-dropdown, #ffffff); /* Fallback statique si variable absente */
-  border: 1px solid rgba(128, 128, 128, 0.15);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  background-color: #ffffff;
+  border: 1px solid #e0dcd3;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   min-width: 200px;
   overflow: hidden;
-  z-index: 1001;
-}
-
-/* Règle adaptative native pour le menu selon le thème de l'appareil */
-@media (prefers-color-scheme: dark) {
-  .menu-contextuel {
-    background-color: #1a1d21;
-  }
-}
-
-.menu-en-tete {
-  padding: 14px 16px;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.15);
-}
-
-.menu-nom {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  opacity: 0.8;
+  z-index: 901; /* Doit être supérieur au calque */
+  padding: 8px 0;
 }
 
 .menu-action {
@@ -208,14 +210,20 @@ const actionnerVendeur = () => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px 18px;
   background: transparent;
   border: none;
-  color: inherit;
+  color: #3b302a;
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
+  transition: background-color 0.2s;
+}
+
+.menu-action:hover {
+  background-color: #f8f6f0;
 }
 
 .menu-action svg {
@@ -225,16 +233,17 @@ const actionnerVendeur = () => {
 }
 
 .action-danger {
-  color: #ff5c5c;
+  color: #b35034;
 }
 .action-danger svg {
   opacity: 1;
 }
 
-/* Calque pour fermer le menu lors d'un clic extérieur */
+/* Calque de fermeture : Correction du Stacking Context */
 .calque-fermeture {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 900; /* Strictement inférieur au menu contextuel */
+  cursor: default;
 }
 </style>

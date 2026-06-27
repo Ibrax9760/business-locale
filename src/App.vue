@@ -34,6 +34,11 @@ const equipements = ref([])
 // === MOTEURS DE FILTRAGE ===
 const produitsFiltrés = computed(() => {
   if (!produits.value) return [];
+  
+  // Clause d'exclusion : Si la vue est définie sur "location", 
+  // on retourne un tableau vide pour masquer la gastronomie.
+  if (pageActive.value === 'location') return [];
+
   return produits.value.filter(p => {
     const titreProduit = p.titre || '';
     const texteRecherche = recherche.value || '';
@@ -43,6 +48,11 @@ const produitsFiltrés = computed(() => {
 
 const equipementsFiltrés = computed(() => {
   if (!equipements.value) return [];
+  
+  // Clause d'exclusion : Si la vue est définie sur "gastronomie", 
+  // on retourne un tableau vide pour masquer les équipements.
+  if (pageActive.value === 'gastronomie') return [];
+
   return equipements.value.filter(e => {
     const titreEquipement = e.titre || '';
     const texteRecherche = recherche.value || '';
@@ -270,35 +280,52 @@ const executerDeconnexion = async () => {
 
   <main>
     <div v-show="!modeVendeur">
-      <section class="recherche-section">
-        <h2 class="titre-section">Que cherchez-vous ?</h2>
-        <div class="barre-recherche-container">
-          <span class="icone-loupe">🔍</span>
-          <input type="text" class="champ-recherche" placeholder="Rechercher un plat ou un équipement..." v-model="recherche" />
-        </div>
-        <div class="filtres-container">
-          <button class="chip-filtre" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">Tout</button>
-          <button class="chip-filtre" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">Gastronomie</button>
-          <button class="chip-filtre" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">Locations</button>
-        </div>
-      </section>
+      <section class="recherche-premium">
+  <h2 class="titre-recherche">Explorez notre carte</h2>
+  
+  <div class="barre-recherche-container">
+    <svg class="icone-loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"></circle>
+      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+    </svg>
+    <input 
+      type="text" 
+      class="champ-recherche-premium" 
+      placeholder="Rechercher un plat, un équipement..." 
+      v-model="recherche" 
+    />
+  </div>
+
+  <div class="filtres-scrollables">
+    <button 
+      class="chip-premium" 
+      :class="{ actif: pageActive === 'tout' }" 
+      @click="pageActive = 'tout'">
+      Tout
+    </button>
+    <button 
+      class="chip-premium" 
+      :class="{ actif: pageActive === 'gastronomie' }" 
+      @click="pageActive = 'gastronomie'">
+      Gastronomie
+    </button>
+    <button 
+      class="chip-premium" 
+      :class="{ actif: pageActive === 'location' }" 
+      @click="pageActive = 'location'">
+      Locations
+    </button>
+  </div>
+</section>
 
       <section v-if="produitsFiltrés.length > 0">
-        <h2>Notre Carte</h2>
         <div class="grille-produits">
-          <div v-for="produit in produitsFiltrés" :key="produit.id" class="carte-produit">
-            <img :src="produit.image_url" :alt="produit.titre" class="image-produit" />
-            <h3>{{ produit.titre }}</h3>
-            <p>{{ produit.description }}</p>
-            <div class="selecteur-variante" v-if="produit.variantes?.length > 1">
-              <label>Choisir la taille :</label>
-              <select v-model="produit.varianteChoisie">
-                <option v-for="v in produit.variantes" :key="v.id" :value="v">{{ v.nom }} - {{ v.prix }} €</option>
-              </select>
-            </div>
-            <p v-else class="prix-unique">{{ produit.variantes[0].nom }} - {{ produit.variantes[0].prix }} €</p>
-            <button @click="ajouterAuPanier(produit, true)" class="bouton-ajout">Ajouter au panier ({{ produit.varianteChoisie.prix }} €)</button>
-          </div>
+          <CarteProduit 
+            v-for="produit in produitsFiltrés" 
+            :key="produit.id" 
+            :produit="produit"
+            @ajouter-produit="ajouterAuPanier($event, true)"
+          />
         </div>
       </section>
 
@@ -574,86 +601,108 @@ textarea:focus {
   box-shadow: 0 0 0 4px rgba(116, 180, 170, 0.15);
 }
 
-/* --- RECHERCHE & FILTRES --- */
-.recherche-section {
-  margin-bottom: 40px;
-  max-width: 800px;
+/* --- RECHERCHE & FILTRES PREMIUM --- */
+.recherche-premium {
+  margin-bottom: 32px;
+  padding-top: 12px;
 }
 
-.titre-section {
+.titre-recherche {
   font-family: 'Playfair Display', serif;
-  font-size: 2rem;
+  font-size: 1.6rem;
   font-weight: 700;
-  color: #3b302a;
-  margin-bottom: 20px;
-  letter-spacing: 0.01em;
+  margin: 0 0 16px 0;
+  letter-spacing: 0.2px;
 }
 
 .barre-recherche-container {
   position: relative;
-  margin-bottom: 24px;
-  width: 100%;
+  margin-bottom: 20px;
 }
 
-.icone-loupe {
+.icone-loupe-svg {
   position: absolute;
-  left: 20px;
+  left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  color: #888;
-  font-size: 1.2rem;
+  width: 18px;
+  height: 18px;
+  color: inherit;
+  opacity: 0.5;
   pointer-events: none;
 }
 
-.champ-recherche {
+.champ-recherche-premium {
   width: 100%;
-  box-sizing: border-box;
-  padding: 16px 20px 16px 56px;
-  border-radius: 50px;
-  border: 1px solid #e0dcd3;
-  background-color: rgba(255, 255, 255, 0.9);
-  font-family: 'Inter', sans-serif;
-  font-size: 1rem;
-  color: #2c2520;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-  transition: all 0.3s ease;
-}
-
-.champ-recherche:focus {
-  outline: none;
-  border-color: #74b4aa;
-  background-color: #ffffff;
-  box-shadow: 0 4px 16px rgba(116, 180, 170, 0.2);
-}
-
-.champ-recherche::placeholder {
-  color: #a09b96;
-}
-
-.filtres-container {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.chip-filtre {
-  padding: 10px 24px;
-  border-radius: 50px;
+  padding: 14px 16px 14px 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  background-color: transparent;
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: transparent;
-  border: 1px solid #bc6c46;
-  color: #bc6c46;
+  color: inherit;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s ease;
+  
+  /* Supprime le style natif imposé par les navigateurs */
+  -webkit-appearance: none; 
+  appearance: none; 
 }
 
-.chip-filtre.actif {
-  background-color: #2b4c40;
-  border-color: #2b4c40;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(43, 76, 64, 0.3);
+.champ-recherche-premium:focus {
+  outline: none;
+  border-color: #74b4aa;
+  box-shadow: 0 0 0 3px rgba(116, 180, 170, 0.15);
+  background-color: rgba(128, 128, 128, 0.02);
+}
+
+.champ-recherche-premium::placeholder {
+  opacity: 0.6;
+}
+
+/* Axe de défilement horizontal invisible pour le tactile */
+.filtres-scrollables {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Désactivation de la barre de scroll visuelle */
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
+}
+
+.filtres-scrollables::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-premium {
+  padding: 10px 22px;
+  border-radius: 99px; /* Forme de pilule parfaite */
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap; /* Empêche le texte de s'empiler */
+  cursor: pointer;
+  background-color: transparent;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  color: inherit;
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.chip-premium.actif {
+  background-color: currentColor;
+  opacity: 1;
+}
+
+/* Le texte de la pilule active s'inverse selon le mode clair/sombre */
+@media (prefers-color-scheme: light) {
+  .chip-premium.actif { color: #fcfcfc; background-color: #1a1d20; border-color: #1a1d20; }
+}
+@media (prefers-color-scheme: dark) {
+  .chip-premium.actif { color: #090a0f; background-color: #f8f9fa; border-color: #f8f9fa; }
 }
 
 /* --- STRUCTURES CARTES & GRILLES --- */

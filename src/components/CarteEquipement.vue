@@ -1,109 +1,119 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed } from 'vue'
 
-// On reçoit les données de l'équipement depuis App.vue
 const props = defineProps({
   equipement: Object
-});
+})
 
-// On déclare l'événement pour envoyer l'article dans le panier
-const emit = defineEmits(['ajouter-equipement']);
+const emit = defineEmits(['ajouter-equipement'])
 
-const dateDebut = ref('');
-const dateFin = ref('');
+const dateDebut = ref('')
+const dateFin = ref('')
 
-// Date minimale (Aujourd'hui) pour bloquer la sélection de dates passées
-const dateAujourdhui = computed(() => new Date().toISOString().split('T')[0]);
+const dureeLocation = computed(() => {
+  if (!dateDebut.value || !dateFin.value) return 0
+  const debut = new Date(dateDebut.value)
+  const fin = new Date(dateFin.value)
+  const diffTemps = fin.getTime() - debut.getTime()
+  const diffJours = Math.ceil(diffTemps / (1000 * 3600 * 24))
+  return diffJours > 0 ? diffJours : 0
+})
 
-// Validation : Les deux dates doivent être remplies et la fin doit être supérieure ou égale au début
-const periodeValide = computed(() => {
-  if (!dateDebut.value || !dateFin.value) return false;
-  return new Date(dateFin.value) >= new Date(dateDebut.value);
-});
+const prixTotal = computed(() => {
+  return dureeLocation.value * props.equipement.prix_journalier
+})
 
-// Calcul du nombre de jours
-const joursLocation = computed(() => {
-  if (!periodeValide.value) return 0;
-  const diffTemps = new Date(dateFin.value) - new Date(dateDebut.value);
-  const diffJours = Math.ceil(diffTemps / (1000 * 60 * 60 * 24));
-  return diffJours === 0 ? 1 : diffJours; // Minimum 1 jour facturé
-});
-
-const preparerMiseAuPanier = () => {
-  if (!periodeValide.value) return;
-
-  // Création du paquet de données envoyé au panier
-  const payloadLocation = {
+const reserverEquipement = () => {
+  if (dureeLocation.value <= 0) {
+    alert("Veuillez sélectionner des dates valides pour la location.")
+    return
+  }
+  emit('ajouter-equipement', {
     ...props.equipement,
-    typeElement: 'location',
     dateDebutSelectionnee: dateDebut.value,
     dateFinSelectionnee: dateFin.value,
-    dureeJours: joursLocation.value,
-    // Le prix total est calculé dynamiquement
-    prixTotalLocation: props.equipement.prix * joursLocation.value
-  };
-
-  emit('ajouter-equipement', payloadLocation);
-  
-  // Réinitialisation des champs après l'ajout pour la prochaine sélection
-  dateDebut.value = '';
-  dateFin.value = '';
-};
+    dureeJours: dureeLocation.value,
+    prixTotalLocation: prixTotal.value
+  })
+}
 </script>
 
 <template>
-  <div class="carte-element">
-    <div class="image-container">
-      <img :src="equipement.image_url" :alt="equipement.nom" />
+  <article class="carte-premium">
+    <div class="conteneur-image">
+      <img :src="equipement.image_url" :alt="equipement.titre" class="image-produit" loading="lazy" />
     </div>
     
     <div class="contenu-carte">
-      <h3>{{ equipement.nom }}</h3>
-      <p class="description">{{ equipement.description }}</p>
-      <p class="prix">{{ equipement.prix }} € / jour</p>
-
-      <div class="zone-reservation">
+      <h3 class="titre-produit">{{ equipement.titre }}</h3>
+      <p class="description-produit">{{ equipement.description }}</p>
+      
+      <div class="selecteur-dates-premium">
         <div class="champ-date">
-          <label>Date de début</label>
-          <input type="date" v-model="dateDebut" :min="dateAujourdhui" />
+          <label>Début</label>
+          <input type="date" v-model="dateDebut" class="input-date" />
         </div>
         <div class="champ-date">
-          <label>Date de fin</label>
-          <input type="date" v-model="dateFin" :min="dateDebut || dateAujourdhui" />
+          <label>Fin</label>
+          <input type="date" v-model="dateFin" class="input-date" />
         </div>
       </div>
 
-      <div v-if="periodeValide" class="recap-prix">
-        Total pour {{ joursLocation }} jour(s) : <strong>{{ equipement.prix * joursLocation }} €</strong>
+      <div class="pied-carte">
+        <div class="info-prix">
+          <span class="prix-affiche">{{ prixTotal > 0 ? prixTotal : equipement.prix_journalier }} €</span>
+          <span class="prix-detail">{{ prixTotal > 0 ? `${dureeLocation} jour(s)` : '/ jour' }}</span>
+        </div>
+        
+        <button 
+          class="bouton-ajouter-premium" 
+          :class="{ 'bouton-desactive': dureeLocation <= 0 }"
+          @click="reserverEquipement" 
+          :disabled="dureeLocation <= 0"
+          aria-label="Réserver cet équipement"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </button>
       </div>
-
-      <button 
-        @click="preparerMiseAuPanier" 
-        :disabled="!periodeValide"
-        class="bouton-ajouter"
-        :class="{ 'bouton-desactive': !periodeValide }"
-      >
-        {{ periodeValide ? 'Ajouter au panier' : 'Sélectionnez vos dates' }}
-      </button>
     </div>
-  </div>
+  </article>
 </template>
 
 <style scoped>
-.carte-element {
-  background: #ffffff;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+/* Socle partagé avec la carte gastronomie */
+.carte-premium {
   display: flex;
   flex-direction: column;
-  border: 1px solid #f0f0f0;
+  height: 100%;
+  background-color: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: var(--radius-carte);
+  overflow: hidden;
+  box-shadow: var(--shadow-douce);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.image-container img {
+.carte-premium:active {
+  transform: scale(0.98);
+}
+
+.conteneur-image {
   width: 100%;
-  height: 200px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background-color: rgba(128, 128, 128, 0.1);
+}
+
+.image-produit {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  transition: transform 0.3s ease;
 }
 
 .contenu-carte {
@@ -113,92 +123,125 @@ const preparerMiseAuPanier = () => {
   flex-grow: 1;
 }
 
-h3 {
+.titre-produit {
   font-family: 'Playfair Display', serif;
-  font-size: 1.4rem;
-  color: #3b302a;
-  margin: 0 0 10px 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: inherit;
 }
 
-.description {
+.description-produit {
   font-family: 'Inter', sans-serif;
-  color: #6b7b8c;
   font-size: 0.9rem;
-  margin-bottom: 15px;
+  color: var(--text-secondary);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
   flex-grow: 1;
 }
 
-.prix {
-  font-weight: 700;
-  color: #bc6c46;
-  font-size: 1.2rem;
-  margin-bottom: 15px;
-}
-
-.zone-reservation {
+/* Design spécifique du sélecteur de dates */
+.selecteur-dates-premium {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
-  background: #f8fafc;
+  gap: 12px;
+  margin-bottom: 20px;
+  background-color: var(--bg-input);
   padding: 12px;
-  border-radius: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtile);
 }
 
 .champ-date {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  width: 50%;
+  gap: 4px;
 }
 
 .champ-date label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #4a5568;
-  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
 }
 
-.champ-date input {
-  padding: 8px;
-  border: 1px solid #d1d9e0;
-  border-radius: 8px;
-  font-family: 'Inter', sans-serif;
-  outline: none;
-}
-
-.champ-date input:focus {
-  border-color: #74b4aa;
-}
-
-.recap-prix {
-  font-size: 0.9rem;
-  color: #1a5653;
-  background: #eef7f6;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.bouton-ajouter {
-  background: #3b302a;
-  color: white;
+.input-date {
+  background: transparent;
   border: none;
-  padding: 12px;
-  border-radius: 99px;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-  margin-top: auto; /* Pousse le bouton vers le bas de la carte */
+  color: inherit;
+  width: 100%;
 }
 
-.bouton-ajouter:not(.bouton-desactive):hover {
-  background: #2c2520;
+.input-date:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Zone d'action finale */
+.pied-carte {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtile);
+}
+
+.info-prix {
+  display: flex;
+  flex-direction: column;
+}
+
+.prix-affiche {
+  font-family: 'Inter', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: inherit;
+  line-height: 1;
+}
+
+.prix-detail {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+.bouton-ajouter-premium {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background-color: var(--text-accent);
+  color: #ffffff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bouton-ajouter-premium svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bouton-ajouter-premium:active {
+  transform: scale(0.85);
 }
 
 .bouton-desactive {
-  background: #f4f6f8;
-  color: #a0aec0;
+  background-color: var(--border-subtile);
+  color: var(--text-secondary);
   cursor: not-allowed;
-  border: 1px solid #d1d9e0;
+}
+
+.bouton-desactive:active {
+  transform: none;
 }
 </style>
