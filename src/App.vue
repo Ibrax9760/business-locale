@@ -1,19 +1,17 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { supabase } from './utils/supabaseClient'
+import { ref, onMounted } from 'vue';
+import { supabase } from './utils/supabaseClient';
+import EnTete from './components/EnTete.vue';
+import TiroirPanier from './components/TiroirPanier.vue';
 
-import EnTete from './components/EnTete.vue'
-import PanneauVendeur from './components/PanneauVendeur.vue'
-import CarteProduit from './components/CarteProduit.vue'
-import CarteEquipement from './components/CarteEquipement.vue'
-import TiroirPanier from './components/TiroirPanier.vue'
-
-// === ÉTATS D'AUTHENTIFICATION ===
-const session = ref(null);
+// --- ÉTATS GLOBAUX ---
 const utilisateur = ref(null);
 const profilClient = ref(null);
+const panier = ref([]);
+const panierOuvert = ref(false);
+const notification = ref({ active: false, message: '' });
 
-// === ÉTATS DU FORMULAIRE AUTH ===
+// --- ÉTATS AUTHENTIFICATION ---
 const afficherFormulaireAuth = ref(false);
 const estModeInscription = ref(false);
 const emailInput = ref('');
@@ -21,326 +19,184 @@ const motDePasseInput = ref('');
 const nomInput = ref('');
 const messageErreur = ref('');
 
-// --- ÉTAT DE L'APPLICATION ---
-const panier = ref([])
-const panierOuvert = ref(false)
-const pageActive = ref('tout')
-const recherche = ref('')
-
-// Variables de données 
-const produits = ref([])
-const equipements = ref([])
-
-// === MOTEURS DE FILTRAGE ===
-const produitsFiltrés = computed(() => {
-  if (!produits.value) return [];
-  
-  // Clause d'exclusion : Si la vue est définie sur "location", 
-  // on retourne un tableau vide pour masquer la gastronomie.
-  if (pageActive.value === 'location') return [];
-
-  return produits.value.filter(p => {
-    const titreProduit = p.titre || '';
-    const texteRecherche = recherche.value || '';
-    return titreProduit.toLowerCase().includes(texteRecherche.toLowerCase());
-  });
-});
-
-const equipementsFiltrés = computed(() => {
-  if (!equipements.value) return [];
-  
-  // Clause d'exclusion : Si la vue est définie sur "gastronomie", 
-  // on retourne un tableau vide pour masquer les équipements.
-  if (pageActive.value === 'gastronomie') return [];
-
-  return equipements.value.filter(e => {
-    const titreEquipement = e.titre || '';
-    const texteRecherche = recherche.value || '';
-    return titreEquipement.toLowerCase().includes(texteRecherche.toLowerCase());
-  });
-});
-
-// Chargement des données depuis Supabase
-const chargerDonnees = async () => {
-  try {
-    const { data: dataPlats, error: errorPlats } = await supabase.from('produits_gastronomie').select('*')
-    if (errorPlats) throw errorPlats
-    
-    produits.value = dataPlats.map(p => ({
-      ...p,
-      type: 'gastronomie',
-      varianteChoisie: p.variantes && p.variantes.length > 0 ? p.variantes[0] : null
-    }))
-
-    const { data: dataEquipements, error: errorEquipements } = await supabase.from('equipements_location').select('*')
-    if (errorEquipements) throw errorEquipements
-    
-    equipements.value = dataEquipements.map(e => ({
-      ...e,
-      typeElement: 'location',
-      prix: e.prix_journalier, // Mapping crucial pour la compatibilité avec CarteEquipement
-      nom: e.titre // Mapping de sécurité pour l'affichage
-    }))
-    
-  } catch (error) {
-    console.error("Erreur DB:", error.message)
-    afficherNotification("❌ Erreur de connexion à la base de données")
-  }
-}
-
-onMounted(async () => {
-  chargerDonnees();
-  const { data: { session: sessionInitiale } } = await supabase.auth.getSession();
-  
-  if (sessionInitiale?.user) {
-    session.value = sessionInitiale;
-    utilisateur.value = sessionInitiale.user;
-    await recupererProfilMetier(sessionInitiale.user.id);
-  }
-
-  supabase.auth.onAuthStateChange(async (event, sessionActuelle) => {
-    session.value = sessionActuelle;
-    utilisateur.value = sessionActuelle?.user || null;
-    if (sessionActuelle?.user) {
-      await recupererProfilMetier(sessionActuelle.user.id);
-    } else {
-      profilClient.value = null;
-    }
-  });
-});
-
-const notification = ref({ active: false, message: '' })
-let timeoutId = null
-
+// --- FONCTIONS DE BASE ---
 const afficherNotification = (texte) => {
-  notification.value.message = texte
-  notification.value.active = true
-  if (timeoutId) clearTimeout(timeoutId)
-  timeoutId = setTimeout(() => notification.value.active = false, 3000)
-}
+  notification.value.message = texte;
+  notification.value.active = true;
+  setTimeout(() => notification.value.active = false, 3000);
+};
 
-// --- VARIABLES MODE VENDEUR ---
-const modeVendeur = ref(false)
-
-// (Logique complète du vendeur conservée mais réduite visuellement pour se concentrer sur l'erreur)
-// Tu peux conserver l'intégralité de tes fonctions d'édition/ajout/suppression ici
-// [Le bloc compressImageFile, handleImageUpload, demarrerEdition, supprimerArticleVendeur, ajouterArticleVendeur reste identique]
-
-// --- GESTION DU PANIER (CORRIGÉE POUR ACCEPTER LES LOCATIONS) ---
 const ajouterAuPanier = (article, estProduit = false) => {
-  let idUnique, titreComplet, prixFinal
-
+  let idUnique, titreComplet, prixFinal;
   if (estProduit) {
-    idUnique = `${article.id}-${article.varianteChoisie.id}`
-    titreComplet = `${article.titre} - ${article.varianteChoisie.nom}`
-    prixFinal = article.varianteChoisie.prix
+    idUnique = `${article.id}-${article.varianteChoisie.id}`;
+    titreComplet = `${article.titre} - ${article.varianteChoisie.nom}`;
+    prixFinal = article.varianteChoisie.prix;
   } else {
-    // Interception des données de location générées par CarteEquipement
-    idUnique = `${article.id}-${article.dateDebutSelectionnee}`
-    titreComplet = article.titre || article.nom
-    prixFinal = article.prixTotalLocation
+    idUnique = `${article.id}-${article.dateDebutSelectionnee}`;
+    titreComplet = article.titre || article.nom;
+    prixFinal = article.prixTotalLocation;
   }
-
-  const articleExistant = panier.value.find(item => item.idUnique === idUnique)
-  if (articleExistant) {
-    articleExistant.quantite++
+  const articleExistant = panier.value.find(item => item.idUnique === idUnique);
+  if (articleExistant) { 
+    articleExistant.quantite++; 
   } else {
     panier.value.push({ 
       idUnique, 
       titre: titreComplet, 
       prix: prixFinal, 
-      quantite: 1,
-      typeElement: estProduit ? 'gastronomie' : 'location',
-      dateDebutSelectionnee: article.dateDebutSelectionnee,
-      dateFinSelectionnee: article.dateFinSelectionnee,
-      dureeJours: article.dureeJours
-    })
+      quantite: 1, 
+      typeElement: estProduit ? 'gastronomie' : 'location' 
+    });
   }
-  afficherNotification(`✅ ${titreComplet} ajouté au panier`)
-}
+  afficherNotification(`✅ ${titreComplet} ajouté au panier`);
+};
 
-// Fonction de validation finale déclenchée par le composant TiroirPanier
 const executerCommandeWhatsApp = (payload) => {
   const numeroVendeur = "262639610515";
   const texteEncode = encodeURIComponent(payload.message);
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    window.location.href = `whatsapp://send?phone=${numeroVendeur}&text=${texteEncode}`;
-  } else {
-    window.open(`https://api.whatsapp.com/send?phone=${numeroVendeur}&text=${texteEncode}`, '_blank');
-  }
-  
-  // Clôture et réinitialisation de la transaction
+  window.open(`https://api.whatsapp.com/send?phone=${numeroVendeur}&text=${texteEncode}`, '_blank');
   panier.value = [];
   panierOuvert.value = false;
 };
 
-// === FONCTIONS D'AUTHENTIFICATION ===
-const recupererProfilMetier = async (userId) => {
+const executerDeconnexion = async () => {
+  await supabase.auth.signOut();
+  window.location.reload();
+};
+
+// --- MÉCANISME D'HYDRATATION DU PROFIL ---
+const recupererProfil = async (userId) => {
   try {
-    const { data, error } = await supabase.from('profils').select('nom, role').eq('id', userId).single();
+    const { data, error } = await supabase
+      .from('profils')
+      .select('nom, role')
+      .eq('id', userId)
+      .single();
+      
     if (error) throw error;
     profilClient.value = data;
   } catch (error) {
-    profilClient.value = null;
+    console.error("Échec de la récupération des attributs du profil :", error.message);
+  }
+};
+
+// --- MÉCANISMES D'AUTHENTIFICATION ---
+const executerConnexion = async () => {
+  try {
+    messageErreur.value = '';
+    
+    // 1. Validation de l'authentification
+    const { data, error } = await supabase.auth.signInWithPassword({ 
+      email: emailInput.value, 
+      password: motDePasseInput.value 
+    });
+    
+    if (error) throw error;
+
+    // 2. Attribution du jeton de session
+    utilisateur.value = data.user;
+    
+    // 3. Exécution de la requête de sélection sur la table profils
+    await recupererProfil(data.user.id);
+    
+    // 4. Fermeture de l'interface modale
+    afficherFormulaireAuth.value = false;
+    afficherNotification("Connexion réussie !");
+    
+  } catch (error) { 
+    messageErreur.value = "Identifiants invalides ou erreur réseau."; 
+    console.error("Incident d'authentification :", error);
   }
 };
 
 const executerInscription = async () => {
   try {
     messageErreur.value = '';
-    const { error } = await supabase.auth.signUp({
-      email: emailInput.value,
+    const { data, error } = await supabase.auth.signUp({ 
+      email: emailInput.value, 
       password: motDePasseInput.value,
       options: { data: { nom: nomInput.value } }
     });
+    
     if (error) throw error;
+    
+    if (data.user) {
+       utilisateur.value = data.user;
+       await recupererProfil(data.user.id);
+    }
+    
     afficherFormulaireAuth.value = false;
-  } catch (error) {
-    messageErreur.value = error.message;
+    afficherNotification("Inscription réussie !");
+  } catch (error) { 
+    messageErreur.value = error.message; 
   }
 };
 
-const executerConnexion = async () => {
-  try {
-    messageErreur.value = '';
-    const { error } = await supabase.auth.signInWithPassword({
-      email: emailInput.value,
-      password: motDePasseInput.value,
-    });
-    if (error) throw error;
-    afficherFormulaireAuth.value = false;
-  } catch (error) {
-    messageErreur.value = "Identifiants invalides. Veuillez réessayer.";
+// --- INITIALISATION DU COMPOSANT ---
+onMounted(async () => {
+  const { data: { session: s } } = await supabase.auth.getSession();
+  
+  if (s?.user) { 
+    utilisateur.value = s.user; 
+    await recupererProfil(s.user.id);
   }
-};
-
-const executerDeconnexion = async () => {
-  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000));
-  try {
-    await Promise.race([supabase.auth.signOut(), timeout]);
-  } catch (error) {
-    console.warn("Nettoyage local forcé.");
-  } finally {
-    session.value = null;
-    utilisateur.value = null;
-    profilClient.value = null;
-    localStorage.clear();
-    window.location.reload();
-  }
-};
+});
 </script>
 
 <template>
   <div id="app">
-    <EnTete 
-      :utilisateur="utilisateur" 
-      :profilClient="profilClient"
-      :panierLength="panier.length"
-      @toggle-vendeur="modeVendeur = !modeVendeur"
-      @open-panier="panierOuvert = true"
-      @deconnexion="executerDeconnexion"
-      @open-auth="afficherFormulaireAuth = true" 
-    />
-  </div>
-
-  <div v-if="afficherFormulaireAuth && !utilisateur" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
-    <div class="modal-auth">
-      <button class="bouton-fermer-auth" @click="afficherFormulaireAuth = false">✖</button>
-      <div class="en-tete-auth">
+    
+    <div v-if="afficherFormulaireAuth && !utilisateur" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
+      <div class="modal-auth">
+        <button class="bouton-fermer-auth" @click="afficherFormulaireAuth = false">✖</button>
+        
         <h2>{{ estModeInscription ? 'Créer un compte' : 'Bon retour' }}</h2>
-        <p>{{ estModeInscription ? 'Rejoignez notre boutique locale.' : 'Connectez-vous pour continuer.' }}</p>
-      </div>
-      <div v-if="messageErreur" class="alerte-erreur">⚠️ {{ messageErreur }}</div>
-      <form @submit.prevent="estModeInscription ? executerInscription() : executerConnexion()" class="formulaire-auth">
-        <div v-if="estModeInscription" class="groupe-champ">
-          <label>Nom complet</label>
-          <input type="text" v-model="nomInput" placeholder="Ex: Ibrahim" required />
-        </div>
-        <div class="groupe-champ">
-          <label>Adresse Email</label>
-          <input type="email" v-model="emailInput" placeholder="nom@exemple.com" required />
-        </div>
-        <div class="groupe-champ">
-          <label>Mot de passe</label>
-          <input type="password" v-model="motDePasseInput" placeholder="••••••••" required />
-        </div>
-        <button type="submit" class="bouton-valider-auth">
-          {{ estModeInscription ? "Créer mon compte" : "Se connecter" }}
-        </button>
-      </form>
-      <div class="pied-auth">
+        
+        <div v-if="messageErreur" class="alerte-erreur">⚠️ {{ messageErreur }}</div>
+        
+        <form @submit.prevent="estModeInscription ? executerInscription() : executerConnexion()">
+          <div v-if="estModeInscription" class="groupe-champ">
+            <label>Nom</label>
+            <input type="text" v-model="nomInput" required />
+          </div>
+          
+          <div class="groupe-champ">
+            <label>Email</label>
+            <input type="email" v-model="emailInput" required />
+          </div>
+          
+          <div class="groupe-champ">
+            <label>Mot de passe</label>
+            <input type="password" v-model="motDePasseInput" required />
+          </div>
+          
+          <button type="submit" class="bouton-valider-auth">
+            {{ estModeInscription ? "S'inscrire" : "Se connecter" }}
+          </button>
+        </form>
+        
         <p @click="estModeInscription = !estModeInscription" class="lien-bascule">
           {{ estModeInscription ? 'Déjà un compte ? Connectez-vous' : 'Pas de compte ? Inscrivez-vous' }}
         </p>
       </div>
     </div>
-  </div>
 
-  <main>
-    <div v-show="!modeVendeur">
-      <section class="recherche-premium">
-  <h2 class="titre-recherche">Explorez notre carte</h2>
-  
-  <div class="barre-recherche-container">
-    <svg class="icone-loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="8"></circle>
-      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-    </svg>
-    <input 
-      type="text" 
-      class="champ-recherche-premium" 
-      placeholder="Rechercher un plat, un équipement..." 
-      v-model="recherche" 
+    <EnTete 
+      :utilisateur="utilisateur" 
+      :profilClient="profilClient"
+      :panierLength="panier.length"
+      @open-panier="panierOuvert = true"
+      @deconnexion="executerDeconnexion"
+      @open-auth="afficherFormulaireAuth = true" 
     />
-  </div>
 
-  <div class="filtres-scrollables">
-    <button 
-      class="chip-premium" 
-      :class="{ actif: pageActive === 'tout' }" 
-      @click="pageActive = 'tout'">
-      Tout
-    </button>
-    <button 
-      class="chip-premium" 
-      :class="{ actif: pageActive === 'gastronomie' }" 
-      @click="pageActive = 'gastronomie'">
-      Gastronomie
-    </button>
-    <button 
-      class="chip-premium" 
-      :class="{ actif: pageActive === 'location' }" 
-      @click="pageActive = 'location'">
-      Locations
-    </button>
-  </div>
-</section>
-
-      <section v-if="produitsFiltrés.length > 0">
-        <div class="grille-produits">
-          <CarteProduit 
-            v-for="produit in produitsFiltrés" 
-            :key="produit.id" 
-            :produit="produit"
-            @ajouter-produit="ajouterAuPanier($event, true)"
-          />
-        </div>
-      </section>
-
-      <section v-if="equipementsFiltrés.length > 0">
-        <h2>Location d'Équipements</h2>
-        <div class="grille-equipements">
-          <CarteEquipement 
-            v-for="equipement in equipementsFiltrés" 
-            :key="equipement.id" 
-            :equipement="equipement"
-            @ajouter-equipement="ajouterAuPanier($event, false)"
-          />
-        </div>
-      </section>
-    </div>
+    <main>
+      <router-view 
+        :panier="panier" 
+        @ajouter-au-panier="ajouterAuPanier"
+      />
+    </main>
 
     <TiroirPanier 
       :panier="panier" 
@@ -351,19 +207,10 @@ const executerDeconnexion = async () => {
     />
 
     <div :class="['notification', { 'visible': notification.active }]">{{ notification.message }}</div>
-       
-    <PanneauVendeur 
-      v-if="modeVendeur && utilisateur && profilClient?.role === 'super_admin'"
-      :produits="produits"
-      :equipements="equipements"
-      @produit-ajoute="chargerDonnees"
-      @produit-modifie="chargerDonnees"
-      @produit-supprime="chargerDonnees"
-    />
-  </main>
+  </div>
 </template>
 
-<style scoped>
+<style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');
 
 * {
@@ -372,254 +219,18 @@ const executerDeconnexion = async () => {
 
 main {
   min-height: 100vh;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   background-color: #f8f6f0;
-  background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
   color: #2c2520;
   padding: 18px 16px 44px;
 }
 
-/* --- STYLES DE LA MODALE D'AUTHENTIFICATION --- */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 20, 25, 0.65);
-  backdrop-filter: blur(8px);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 2000;
-  padding: 20px;
-}
+/* --- RECHERCHE & FILTRES --- */
+.recherche-premium { margin-bottom: 32px; padding-top: 12px; }
+.titre-recherche { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 700; margin: 0 0 16px 0; }
+.barre-recherche-container { position: relative; margin-bottom: 20px; }
 
-.modal-auth {
-  background: #ffffff;
-  width: 100%;
-  max-width: 420px;
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.2);
-  position: relative;
-  animation: slideUp 0.3s ease-out;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.bouton-fermer-auth {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: #f4f6f8;
-  border: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  color: #6b7b8c;
-  display: grid;
-  place-items: center;
-  transition: all 0.2s;
-}
-
-.bouton-fermer-auth:hover {
-  background: #e1e8ed;
-  color: #1f2833;
-}
-
-.en-tete-auth h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.8rem;
-  color: #3b302a;
-  margin: 0 0 8px 0;
-}
-
-.en-tete-auth p {
-  font-family: 'Inter', sans-serif;
-  color: #6b7b8c;
-  font-size: 0.95rem;
-  margin: 0 0 24px 0;
-}
-
-.alerte-erreur {
-  background: #fdf2f2;
-  color: #b35034;
-  padding: 12px 16px;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin-bottom: 20px;
-  border: 1px solid #fad5d5;
-}
-
-.formulaire-auth .groupe-champ {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 16px;
-}
-
-.formulaire-auth label {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #4a5568;
-  margin-bottom: 8px;
-}
-
-.formulaire-auth input {
-  padding: 14px 16px;
-  border: 1px solid #d1d9e0;
-  border-radius: 14px;
-  background: #f8fafc;
-  font-size: 1rem;
-  color: #1f2833;
-  transition: all 0.2s;
-}
-
-.formulaire-auth input:focus {
-  outline: none;
-  border-color: #74b4aa;
-  background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(116, 180, 170, 0.15);
-}
-
-.bouton-valider-auth {
-  width: 100%;
-  padding: 14px;
-  margin-top: 10px;
-  border-radius: 14px;
-  background: #3b302a;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 1rem;
-  border: none;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.bouton-valider-auth:hover {
-  background: #2c2520;
-}
-
-.pied-auth {
-  margin-top: 24px;
-  text-align: center;
-}
-
-.lien-bascule {
-  color: #74b4aa;
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-  margin: 0;
-}
-
-.lien-bascule:hover {
-  text-decoration: underline;
-}
-
-.en-tete {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 26px;
-}
-
-.en-tete h1 {
-  font-family: 'Playfair Display', serif;
-  font-size: 2rem;
-  line-height: 1.05;
-  margin: 0;
-  color: #3b302a;
-}
-
-.en-tete .sous-titre {
-  color: #6b7b8c;
-  margin-top: 8px;
-  font-size: 1rem;
-  max-width: 420px;
-  line-height: 1.6;
-}
-
-.actions-entete {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  width: 100%;
-  justify-content: flex-end;
-}
-
-.bouton-vendeur,
-.panier-encart,
-.bouton-ajout,
-.bouton-whatsapp,
-.bouton-valider-ajout,
-.bouton-annuler-edition,
-.actions-article-vendeur button {
-  border: none;
-  border-radius: 50px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-  font-family: 'Inter', sans-serif;
-}
-
-.bouton-vendeur {
-  padding: 14px 20px;
-  background: linear-gradient(135deg, #bc6c46, #d98f6a);
-  color: white;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(188, 108, 70, 0.2);
-  cursor: pointer;
-}
-
-.panier-encart {
-  background: linear-gradient(135deg, #74b4aa, #8bc9bf);
-  color: white;
-  padding: 14px 18px;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(116, 180, 170, 0.2);
-  cursor: pointer;
-}
-
-.bouton-vendeur:hover,
-.panier-encart:hover,
-.bouton-ajout:hover,
-.bouton-whatsapp:hover,
-.bouton-valider-ajout:hover {
-  transform: translateY(-2px);
-  opacity: 0.97;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none;
-  border-color: #74b4aa;
-  box-shadow: 0 0 0 4px rgba(116, 180, 170, 0.15);
-}
-
-/* --- RECHERCHE & FILTRES PREMIUM --- */
-.recherche-premium {
-  margin-bottom: 32px;
-  padding-top: 12px;
-}
-
-.titre-recherche {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.6rem;
-  font-weight: 700;
-  margin: 0 0 16px 0;
-  letter-spacing: 0.2px;
-}
-
-.barre-recherche-container {
-  position: relative;
-  margin-bottom: 20px;
-}
-
+/* Correction de la loupe géante */
 .icone-loupe-svg {
   position: absolute;
   left: 16px;
@@ -640,348 +251,73 @@ textarea:focus {
   background-color: transparent;
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  color: inherit;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
-  transition: all 0.3s ease;
-  
-  /* Supprime le style natif imposé par les navigateurs */
   -webkit-appearance: none; 
   appearance: none; 
 }
 
-.champ-recherche-premium:focus {
-  outline: none;
-  border-color: #74b4aa;
-  box-shadow: 0 0 0 3px rgba(116, 180, 170, 0.15);
-  background-color: rgba(128, 128, 128, 0.02);
-}
-
-.champ-recherche-premium::placeholder {
-  opacity: 0.6;
-}
-
-/* Axe de défilement horizontal invisible pour le tactile */
 .filtres-scrollables {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  /* Désactivation de la barre de scroll visuelle */
-  scrollbar-width: none; 
-  -ms-overflow-style: none;
+  display: flex; gap: 12px; overflow-x: auto; padding-bottom: 4px;
+  scrollbar-width: none; -ms-overflow-style: none;
 }
-
-.filtres-scrollables::-webkit-scrollbar {
-  display: none;
-}
+.filtres-scrollables::-webkit-scrollbar { display: none; }
 
 .chip-premium {
-  padding: 10px 22px;
-  border-radius: 99px; /* Forme de pilule parfaite */
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  white-space: nowrap; /* Empêche le texte de s'empiler */
-  cursor: pointer;
-  background-color: transparent;
-  border: 1px solid rgba(128, 128, 128, 0.2);
-  color: inherit;
-  opacity: 0.7;
-  transition: all 0.2s ease;
+  padding: 10px 22px; border-radius: 99px; font-weight: 600;
+  white-space: nowrap; cursor: pointer; border: 1px solid rgba(128, 128, 128, 0.2);
 }
+.chip-premium.actif { background-color: #1a1d20; color: #fcfcfc; }
 
-.chip-premium.actif {
-  background-color: currentColor;
-  opacity: 1;
+/* --- GRILLES ET CARTES --- */
+.grille-produits, .grille-equipements {
+  display: grid; gap: 18px; grid-template-columns: 1fr;
 }
+@media (min-width: 700px) { .grille-produits, .grille-equipements { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1050px) { .grille-produits, .grille-equipements { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 
-/* Le texte de la pilule active s'inverse selon le mode clair/sombre */
-@media (prefers-color-scheme: light) {
-  .chip-premium.actif { color: #fcfcfc; background-color: #1a1d20; border-color: #1a1d20; }
-}
-@media (prefers-color-scheme: dark) {
-  .chip-premium.actif { color: #090a0f; background-color: #f8f9fa; border-color: #f8f9fa; }
-}
-
-/* --- STRUCTURES CARTES & GRILLES --- */
-.carte-produit,
-.carte-equipement,
-.carte-vendeur {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.03);
-  border-radius: 28px;
-  padding: 18px;
+.carte-produit, .carte-equipement {
+  background: #ffffff; border-radius: 28px; padding: 18px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
 }
-
-.grille-produits,
-.grille-equipements {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: 1fr;
-}
-
 .image-produit {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 20px;
-  margin-bottom: 14px;
+  width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 20px; margin-bottom: 14px;
 }
+.carte-produit h3, .carte-equipement h3 { font-family: 'Playfair Display', serif; margin: 0 0 8px; }
 
-.carte-produit h3,
-.carte-equipement h3 {
-  font-family: 'Playfair Display', serif;
-  margin: 0 0 8px;
-  font-size: 1.25rem;
-  color: #3b302a;
+/* --- MODALE D'AUTHENTIFICATION --- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 20, 25, 0.65);
+  backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center;
+  z-index: 2000; padding: 20px;
 }
-
-.bouton-ajout {
-  width: 100%;
-  padding: 14px 16px;
-  background: #2b4c40;
-  color: white;
-  font-weight: 700;
-  cursor: pointer;
+.modal-auth {
+  background: #ffffff; width: 100%; max-width: 400px;
+  border-radius: 24px; padding: 32px; position: relative;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.2);
 }
-
-/* --- DESIGN AVANCÉ DU PANIER (OPTION 1) --- */
-.fond-sombre {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(31, 26, 23, 0.4);
-  backdrop-filter: blur(4px);
-  z-index: 1000;
-  display: flex;
-  justify-content: flex-end;
+.bouton-fermer-auth {
+  position: absolute; top: 20px; right: 20px; background: #f4f6f8;
+  border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
 }
-
-.tiroir-panier {
-  width: min(450px, 100%);
-  height: 100%;
-  background: #fdfdfb;
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.05);
+.modal-auth h2 { font-family: 'Playfair Display', serif; font-size: 1.8rem; margin: 0 0 20px 0; }
+.groupe-champ { margin-bottom: 16px; }
+.groupe-champ label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: #4a5568; }
+.groupe-champ input {
+  width: 100%; padding: 14px 16px; border: 1px solid #d1d9e0;
+  border-radius: 14px; background: #f8fafc; font-size: 1rem;
 }
-
-.entete-tiroir h2 {
-  font-family: 'Playfair Display', serif;
-  margin: 0;
-  font-size: 1.6rem;
-  color: #3b302a;
+.bouton-valider-auth {
+  width: 100%; padding: 14px; margin-top: 10px; border-radius: 14px;
+  background: #3b302a; color: #ffffff; font-weight: 700; border: none; cursor: pointer;
 }
+.lien-bascule { color: #74b4aa; font-weight: 600; font-size: 0.9rem; cursor: pointer; text-align: center; margin-top: 20px; }
+.alerte-erreur { background: #fdf2f2; color: #b35034; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; }
 
-.bouton-fermer {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #e0dcd3;
-  border: none;
-  color: #3b302a;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.contenu-panier {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow-y: auto;
-  gap: 20px;
-  padding-right: 4px;
-}
-
-.item-panier {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px;
-  background: #ffffff;
-  border: 1px solid #f0ece3;
-  border-radius: 20px;
-}
-
-.zone-livraison,
-.formulaire-client,
-.details-calcul {
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 20px;
-  border: 1px solid #f0ece3;
-}
-
-.zone-livraison h3,
-.formulaire-client h3 {
-  font-family: 'Playfair Display', serif;
-  margin: 0 0 14px;
-  font-size: 1.15rem;
-  color: #3b302a;
-}
-
-.options-radio {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 10px;
-}
-
-.options-radio label {
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid #e0dcd3;
-  background: #fdfdfb;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.options-radio label:has(input:checked) {
-  border-color: #2b4c40;
-  background: rgba(43, 76, 64, 0.05);
-  color: #2b4c40;
-}
-
-.sous-options {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid #f0ece3;
-}
-
-.sous-options select {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #e0dcd3;
-  font-family: 'Inter', sans-serif;
-  background-color: #ffffff;
-}
-
-.info-livraison {
-  margin-top: 12px;
-  font-size: 0.9rem;
-  color: #bc6c46;
-  font-weight: 600;
-}
-
-.formulaire-client input {
-  width: 100%;
-  padding: 14px;
-  border-radius: 14px;
-  border: 1px solid #e0dcd3;
-  margin-bottom: 12px;
-}
-
-.details-calcul p {
-  margin: 0 0 8px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.95rem;
-  color: #6b7b8c;
-}
-
-.details-calcul .total {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 2px dashed #e0dcd3;
-  font-size: 1.2rem;
-  color: #2b4c40;
-}
-
-.bouton-whatsapp {
-  width: 100%;
-  padding: 16px;
-  background: #25D366;
-  color: white;
-  font-weight: 700;
-  border-radius: 50px;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.2);
-  text-transform: uppercase;
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-}
-
+/* --- NOTIFICATIONS --- */
 .notification {
-  position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%) translateY(120px);
-  background: rgba(43, 76, 64, 0.95);
-  color: white;
-  padding: 14px 24px;
-  border-radius: 999px;
-  font-weight: 600;
-  z-index: 2000;
-  transition: transform 0.3s ease;
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(120px);
+  background: rgba(43, 76, 64, 0.95); color: white; padding: 14px 24px;
+  border-radius: 999px; font-weight: 600; z-index: 2000; transition: transform 0.3s ease;
 }
-
-/* Personnalisation avancée du menu déroulant public */
-.selecteur-variante select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  width: 100%;
-  max-width: 300px;
-  padding: 12px 40px 12px 16px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #1f2833;
-  background-color: #f8fafc;
-  border: 1px solid #d1d9e0;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  
-  /* Injection vectorielle d'une flèche personnalisée */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 16px;
-}
-
-.selecteur-variante select:focus {
-  outline: none;
-  border-color: #b35034;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(179, 80, 52, 0.1);
-}
-
-.selecteur-variante label {
-  display: block;
-  font-size: 0.85rem;
-  color: #6b7b8c;
-  margin-bottom: 6px;
-  font-weight: 600;
-}
-
-.notification.visible {
-  transform: translateX(-50%) translateY(0);
-}
-
-.animate-fade {
-  animation: fadeIn 0.25s ease-out;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (min-width: 700px) {
-  .grille-produits, .grille-equipements { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (min-width: 1050px) {
-  .grille-produits, .grille-equipements { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 640px) {
-  .tiroir-panier { width: 100%; }
-}
+.notification.visible { transform: translateX(-50%) translateY(0); }
 </style>

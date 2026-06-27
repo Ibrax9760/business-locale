@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed } from 'vue'
-import { ref, computed } from 'vue'
 import { supabase } from '../utils/supabaseClient' // Import du connecteur backend
 
 const props = defineProps({

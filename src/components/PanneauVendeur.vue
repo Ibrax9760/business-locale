@@ -1,17 +1,16 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { supabase } from '../utils/supabaseClient'
-
-const props = defineProps({
-  produits: { type: Array, default: () => [] },
-  equipements: { type: Array, default: () => [] }
-})
 
 const emit = defineEmits(['afficher-notification', 'refresh-data'])
 
-// État de la fenêtre contextuelle (Modale)
-const modalOuverte = ref(false)
+// --- ÉTATS LOCAUX DES DONNÉES (Remplacement des Props) ---
+const produitsVendeur = ref([])
+const equipementsVendeur = ref([])
+const chargement = ref(true)
 
+// --- ÉTATS DE L'INTERFACE ET DU FORMULAIRE ---
+const modalOuverte = ref(false)
 const imageSource = ref('web')
 const modeEdition = ref(false)
 const articleEnEdition = ref(null)
@@ -29,7 +28,36 @@ const nouvelArticle = ref({
   image_url: ''
 })
 
-// Fonctions utilitaires pour l'image
+// --- FONCTION D'EXTRACTION AUTONOME DES DONNÉES ---
+const chargerArticles = async () => {
+  try {
+    chargement.value = true;
+    
+    // Exécution parallèle des requêtes pour optimiser le temps de réponse
+    const [resProduits, resEquipements] = await Promise.all([
+      supabase.from('produits_gastronomie').select('*').order('id', { ascending: false }),
+      supabase.from('equipements_location').select('*').order('id', { ascending: false })
+    ]);
+
+    if (resProduits.error) throw resProduits.error;
+    if (resEquipements.error) throw resEquipements.error;
+
+    produitsVendeur.value = resProduits.data || [];
+    equipementsVendeur.value = resEquipements.data || [];
+  } catch (error) {
+    console.error("Erreur lors de l'extraction des articles :", error.message);
+    emit('afficher-notification', `❌ Erreur de chargement des données`);
+  } finally {
+    chargement.value = false;
+  }
+}
+
+// Déclenchement automatique au chargement du composant
+onMounted(() => {
+  chargerArticles()
+})
+
+// --- FONCTIONS UTILITAIRES POUR L'IMAGE ---
 const compressImageFile = (file, maxSize = 900, quality = 0.75) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -94,7 +122,7 @@ const handleImageUpload = async (event) => {
   }
 }
 
-// Gestion de l'interface
+// --- GESTION DE L'INTERFACE MODALE ---
 const ouvrirModalAjout = () => {
   resetVendeurForm()
   modalOuverte.value = true
@@ -151,7 +179,7 @@ const demarrerEdition = (article, type) => {
   modalOuverte.value = true
 }
 
-// Transactions BDD
+// --- TRANSACTIONS BASE DE DONNÉES (CRUD) ---
 const supprimerArticleVendeur = async (article, type) => {
   const confirmation = confirm(`Voulez-vous vraiment supprimer : ${article.titre} ?`)
   if (!confirmation) return
@@ -162,7 +190,8 @@ const supprimerArticleVendeur = async (article, type) => {
     if (error) throw error
     
     emit('afficher-notification', `🗑️ Article supprimé`)
-    emit('refresh-data')
+    await chargerArticles() // Rafraîchissement autonome
+    emit('refresh-data') // Conservation de l'émission pour synchronisation globale éventuelle
   } catch (error) {
     console.error(error)
     emit('afficher-notification', `❌ Erreur de suppression`)
@@ -217,16 +246,15 @@ const ajouterArticleVendeur = async () => {
       }
       emit('afficher-notification', `✅ Article ajouté`)
     }
-    emit('refresh-data')
+    
     fermerModal()
+    await chargerArticles() // Rafraîchissement autonome
+    emit('refresh-data') // Conservation de l'émission
   } catch (error) {
     console.error(error)
     emit('afficher-notification', `❌ Échec de l'enregistrement`)
   }
 }
-
-const produitsVendeur = computed(() => props.produits || [])
-const equipementsVendeur = computed(() => props.equipements || [])
 </script>
 
 <template>
