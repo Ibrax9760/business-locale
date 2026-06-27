@@ -19,7 +19,6 @@ const gererClicUtilisateur = () => {
   }
 }
 
-// Les événements déclenchent l'action, puis ferment le menu
 const actionnerDeconnexion = () => {
   emit('deconnexion')
   menuUtilisateurOuvert.value = false
@@ -32,10 +31,13 @@ const actionnerVendeur = () => {
 </script>
 
 <template>
+  <!-- ========================================== -->
+  <!-- 1. EN-TÊTE SUPÉRIEUR (TOP BAR)             -->
+  <!-- ========================================== -->
   <header class="navbar-premium">
     
-    <div class="nav-zone nav-gauche">
-      
+    <!-- GAUCHE : Zone Utilisateur (Visible uniquement sur Desktop) -->
+    <div class="nav-zone nav-gauche zone-desktop">
       <button class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -44,10 +46,8 @@ const actionnerVendeur = () => {
         <span v-if="utilisateur && profilClient?.nom" class="nom-utilisateur">{{ profilClient.nom }}</span>
       </button>
 
-      <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click.stop="menuUtilisateurOuvert = false"></div>
-
-      <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel">
-        
+      <!-- Menu contextuel Bureau (S'ouvre vers le bas) -->
+      <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel menu-desktop">
         <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -55,7 +55,6 @@ const actionnerVendeur = () => {
           </svg>
           Espace Vendeur
         </button>
-        
         <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -67,6 +66,7 @@ const actionnerVendeur = () => {
       </div>
     </div>
 
+    <!-- CENTRE : Identité visuelle (Toujours visible) -->
     <div class="nav-zone nav-centre">
       <h1 class="titre-marque">
         <span class="icone-panier-mignon">🧺</span>
@@ -74,7 +74,8 @@ const actionnerVendeur = () => {
       </h1>
     </div>
 
-    <div class="nav-zone nav-droite">
+    <!-- DROITE : Zone Transactionnelle (Visible uniquement sur Desktop) -->
+    <div class="nav-zone nav-droite zone-desktop">
       <button class="bouton-icone" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
@@ -86,10 +87,63 @@ const actionnerVendeur = () => {
     </div>
 
   </header>
+
+  <!-- ========================================== -->
+  <!-- 2. BARRE INFÉRIEURE (BOTTOM TAB BAR)       -->
+  <!-- Visible uniquement sur Mobile              -->
+  <!-- ========================================== -->
+  <nav class="barre-mobile zone-mobile">
+    
+    <!-- Bouton Profil Mobile -->
+    <div class="conteneur-profil-mobile">
+      <button class="bouton-icone" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
+      
+      <!-- Menu contextuel Mobile (S'ouvre vers le haut) -->
+      <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel menu-mobile">
+        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+            <polyline points="9 22 9 12 15 12 15 22"></polyline>
+          </svg>
+          Espace Vendeur
+        </button>
+        <button class="menu-action action-danger" @click.stop="actionactionnerDeconnexion">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <polyline points="16 17 21 12 16 7"></polyline>
+            <line x1="21" y1="12" x2="9" y2="12"></line>
+          </svg>
+          Déconnexion
+        </button>
+      </div>
+    </div>
+
+    <!-- Bouton Panier Mobile -->
+    <button class="bouton-icone" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"></circle>
+        <circle cx="20" cy="21" r="1"></circle>
+        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+      </svg>
+      <span v-if="panierLength > 0" class="badge-panier">{{ panierLength }}</span>
+    </button>
+
+  </nav>
+
+  <!-- Calque de fermeture transparent (clic extérieur) -->
+  <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click.stop="menuUtilisateurOuvert = false"></div>
 </template>
 
 <style scoped>
-/* Architecture de la Navbar */
+/* ========================================== */
+/* SOCLE COMMUN (Couleurs, Typographie)       */
+/* ========================================== */
+
 .navbar-premium {
   display: flex;
   justify-content: space-between;
@@ -104,16 +158,11 @@ const actionnerVendeur = () => {
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.nav-zone {
-  display: flex;
-  align-items: center;
-}
-
+.nav-zone { display: flex; align-items: center; }
 .nav-gauche { flex: 1; justify-content: flex-start; position: relative; }
 .nav-centre { flex: 2; justify-content: center; }
 .nav-droite { flex: 1; justify-content: flex-end; }
 
-/* Typographie de la marque */
 .titre-marque {
   font-family: 'Playfair Display', serif;
   font-size: 1.1rem;
@@ -129,12 +178,8 @@ const actionnerVendeur = () => {
   gap: 8px;
 }
 
-.icone-panier-mignon {
-  font-size: 1.3rem;
-  line-height: 1;
-}
+.icone-panier-mignon { font-size: 1.3rem; line-height: 1; }
 
-/* Boutons Iconographiques et Nom utilisateur */
 .bouton-icone {
   background: transparent;
   border: none;
@@ -148,9 +193,7 @@ const actionnerVendeur = () => {
   transition: opacity 0.2s;
 }
 
-.profil-btn {
-  gap: 8px;
-}
+.profil-btn { gap: 8px; }
 
 .nom-utilisateur {
   font-family: 'Inter', sans-serif;
@@ -159,16 +202,9 @@ const actionnerVendeur = () => {
   color: #3b302a;
 }
 
-.bouton-icone:active {
-  opacity: 0.6;
-}
+.bouton-icone:active { opacity: 0.6; }
+.bouton-icone svg { width: 24px; height: 24px; }
 
-.bouton-icone svg {
-  width: 24px;
-  height: 24px;
-}
-
-/* Pastille (Badge) du panier */
 .badge-panier {
   position: absolute;
   top: 2px;
@@ -189,20 +225,34 @@ const actionnerVendeur = () => {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-/* Menu Contextuel Utilisateur (Dropdown) - Restructuration pour mode clair obligatoire */
+/* ========================================== */
+/* ARCHITECTURE DU MENU CONTEXTUEL            */
+/* ========================================== */
+
 .menu-contextuel {
   position: absolute;
-  top: 100%;
-  left: 0;
-  margin-top: 12px;
   background-color: #ffffff;
   border: 1px solid #e0dcd3;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   min-width: 200px;
   overflow: hidden;
-  z-index: 901; /* Doit être supérieur au calque */
+  z-index: 901;
   padding: 8px 0;
+}
+
+/* Variante Bureau (Sous le bouton) */
+.menu-desktop {
+  top: 100%;
+  left: 0;
+  margin-top: 12px;
+}
+
+/* Variante Mobile (Au-dessus du bouton de la barre du bas) */
+.menu-mobile {
+  bottom: 100%;
+  left: 10px;
+  margin-bottom: 16px;
 }
 
 .menu-action {
@@ -222,28 +272,57 @@ const actionnerVendeur = () => {
   transition: background-color 0.2s;
 }
 
-.menu-action:hover {
-  background-color: #f8f6f0;
-}
+.menu-action:hover { background-color: #f8f6f0; }
+.menu-action svg { width: 18px; height: 18px; opacity: 0.7; }
+.action-danger { color: #b35034; }
+.action-danger svg { opacity: 1; }
 
-.menu-action svg {
-  width: 18px;
-  height: 18px;
-  opacity: 0.7;
-}
-
-.action-danger {
-  color: #b35034;
-}
-.action-danger svg {
-  opacity: 1;
-}
-
-/* Calque de fermeture : Correction du Stacking Context */
 .calque-fermeture {
   position: fixed;
   inset: 0;
-  z-index: 900; /* Strictement inférieur au menu contextuel */
+  z-index: 900;
   cursor: default;
+}
+
+/* ========================================== */
+/* LOGIQUE HYBRIDE : DESKTOP vs MOBILE        */
+/* ========================================== */
+
+/* Par défaut (Desktop), on cache la barre mobile */
+.zone-mobile { display: none; }
+
+/* Styles de la barre inférieure */
+.barre-mobile {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.90);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  justify-content: space-around;
+  align-items: center;
+  padding: 12px 20px;
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+.conteneur-profil-mobile { position: relative; }
+
+/* MEDIA QUERY : Dès qu'on passe sur petit écran (< 768px) */
+@media (max-width: 768px) {
+  
+  /* On cache la zone droite et gauche de la Top Bar */
+  .zone-desktop { display: none !important; }
+  
+  /* On affiche la Bottom Tab Bar */
+  .zone-mobile { display: flex; }
+  
+  /* On centre le titre qui est désormais seul en haut */
+  .nav-centre { flex: 1; }
+  
+  /* On allège l'en-tête supérieur pour gagner de la place */
+  .navbar-premium { padding: 12px; }
+  .titre-marque { font-size: 1rem; }
 }
 </style>
