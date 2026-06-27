@@ -126,7 +126,7 @@ const ajouterAuPanier = () => {
   flex-grow: 1;
 }
 
-/* Architecture des Pilules (Formats) */
+/* Architecture des Pilules (Formats) - Haute Visibilité */
 .selecteur-pilules {
   display: flex;
   flex-wrap: wrap;
@@ -136,12 +136,16 @@ const ajouterAuPanier = () => {
 
 .pilule-format {
   flex: 1;
-  min-width: 80px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtile);
+  min-width: 70px;
+  padding: 10px 4px;
+  border-radius: 12px;
+  
+  /* Style INACTIF (grisé) */
+  border: 2px solid rgba(128, 128, 128, 0.15);
   background: transparent;
-  color: var(--text-secondary);
+  color: inherit;
+  opacity: 0.5;
+  
   font-family: 'Inter', sans-serif;
   font-size: 0.85rem;
   font-weight: 600;
@@ -150,9 +154,27 @@ const ajouterAuPanier = () => {
   text-align: center;
 }
 
+/* Style ACTIF commun (opacité totale, légère ombre) */
 .pilule-format.active {
-  background-color: var(--text-accent);
-  border-color: var(--text-accent);
+  opacity: 1;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Forçage chromatique extrême pour le mode Clair (Blanc) */
+@media (prefers-color-scheme: light) {
+  .pilule-format.active { 
+    background-color: #1a1d20; /* Noir profond */
+    color: #ffffff;            /* Texte blanc */
+  }
+}
+
+/* Forçage chromatique extrême pour le mode Sombre (Noir) */
+@media (prefers-color-scheme: dark) {
+  .pilule-format.active { 
+    background-color: #f8f9fa; /* Blanc pur */
+    color: #090a0f;            /* Texte noir */
+  }
 }
 
 /* Gestion chromatique stricte du texte sur la pilule active */
