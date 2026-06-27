@@ -1,9 +1,12 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { ref, computed } from 'vue'
+import { supabase } from '../utils/supabaseClient' // Import du connecteur backend
 
 const props = defineProps({
   panier: Array,
-  panierOuvert: Boolean
+  panierOuvert: Boolean,
+  utilisateur: Object // Ajout nécessaire pour identifier le client en base
 })
 
 const emit = defineEmits(['close-panier', 'update-panier', 'commander-whatsapp'])
@@ -50,33 +53,33 @@ const modifierQuantite = (idUnique, changement) => {
 }
 
 // Générateur du ticket de caisse WhatsApp mis à jour
-const commanderSurWhatsApp = () => {
+// Fonction devenue asynchrone pour gérer l'interaction serveur
+const commanderSurWhatsApp = async () => {
   if (!nomClient.value || !dateCommande.value) {
     alert("Merci d'indiquer votre nom et la date souhaitée.")
     return
   }
 
+  // 1. Préparation de la chaîne de caractères pour WhatsApp
   let message = `*NOUVELLE COMMANDE*\n`
   message += `Client : ${nomClient.value}\n`
   message += `Date : ${dateCommande.value}\n`
   
+  let modeRecupTexte = ""
   if (modeLivraison.value === 'livraison') {
-    const lieu = lieuLivraison.value === 'mamoudzou' 
-      ? 'Pied de la barge (Mamoudzou)' 
-      : 'À domicile (Petite-Terre)'
-    message += `Type : Livraison - ${lieu}\n`
+    modeRecupTexte = lieuLivraison.value === 'mamoudzou' 
+      ? 'Livraison : Pied de la barge (Mamoudzou)' 
+      : 'Livraison : À domicile (Petite-Terre)'
   } else {
-    const lieu = lieuRetrait.value === 'labattoir' 
-      ? '16A Rue Du Stade, Labattoir' 
-      : 'Pied de la barge (Dzaoudzi)'
-    message += `Type : Click & Collect - ${lieu}\n`
+    modeRecupTexte = lieuRetrait.value === 'labattoir' 
+      ? 'Click & Collect : 16A Rue Du Stade, Labattoir' 
+      : 'Click & Collect : Pied de la barge (Dzaoudzi)'
   }
-  
+  message += `Type : ${modeRecupTexte}\n`
   message += `--------------------------\n`
   
   props.panier.forEach(item => {
     message += `- ${item.quantite}x ${item.titre} - ${item.prix * item.quantite} €\n`
-    
     if (item.typeElement === 'location') {
       message += `  📅 Du ${item.dateDebutSelectionnee} au ${item.dateFinSelectionnee}\n`
       message += `  ⏳ Durée : ${item.dureeJours} jour(s)\n`
@@ -87,8 +90,33 @@ const commanderSurWhatsApp = () => {
   message += `Sous-total : ${totalArticles.value} €\n`
   message += `Frais logistique : ${fraisLogistique.value} €\n`
   message += `*TOTAL À PAYER : ${totalGénéral.value} €*`
-  
-  emit('commander-whatsapp', { message, nomClient: nomClient.value, dateCommande: dateCommande.value })
+
+  // 2. Construction de l'objet de données (Payload) pour Supabase
+  const chargeUtileCommande = {
+    client_id: props.utilisateur ? props.utilisateur.id : null,
+    nom_client: nomClient.value,
+    details_panier: props.panier, // Sauvegarde en format JSONB natif
+    mode_recuperation: modeRecupTexte,
+    frais_logistique: fraisLogistique.value,
+    total_general: totalGénéral.value,
+    date_commande: dateCommande.value
+  }
+
+  try {
+    // 3. Exécution de la requête d'insertion (POST) vers la base de données
+    const { error } = await supabase
+      .from('commandes')
+      .insert([chargeUtileCommande])
+
+    if (error) throw error
+
+    // 4. Si l'enregistrement réussit, déclenchement de l'événement vers App.vue
+    emit('commander-whatsapp', { message, nomClient: nomClient.value, dateCommande: dateCommande.value })
+
+  } catch (erreur) {
+    console.error("Erreur d'enregistrement de la commande :", erreur.message)
+    alert("Une erreur de connexion a empêché l'enregistrement de la commande. Veuillez réessayer.")
+  }
 }
 </script>
 
