@@ -213,6 +213,15 @@ onMounted(async () => {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');
 
+/* Étape 1 : Forcer le schéma clair au niveau de la racine */
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 * {
   box-sizing: border-box;
 }
