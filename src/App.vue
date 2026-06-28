@@ -213,13 +213,16 @@ onMounted(async () => {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;600;700&display=swap');
 
-/* Étape 1 : Forcer le schéma clair au niveau de la racine */
+/* --- FORÇAGE ABSOLU DU MODE CLAIR --- */
 :root {
-  color-scheme: light;
+  color-scheme: light !important;
 }
 
-* {
-  box-sizing: border-box;
+html, body, #app, main {
+  background-color: #f8f6f0 !important;
+  color: #2c2520 !important;
+  margin: 0;
+  padding: 0;
 }
 
 * {
@@ -229,8 +232,6 @@ onMounted(async () => {
 main {
   min-height: 100vh;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background-color: #f8f6f0;
-  color: #2c2520;
   padding: 18px 16px 44px;
 }
 
