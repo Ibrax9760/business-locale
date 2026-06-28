@@ -90,11 +90,11 @@ const reserverEquipement = () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: var(--bg-carte);
-  border: 1px solid var(--border-subtile);
-  border-radius: var(--radius-carte);
+  background-color: var(--bg-carte, #ffffff);
+  border: 1px solid var(--border-subtile, #e5e7eb);
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: var(--shadow-douce);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
@@ -134,7 +134,7 @@ const reserverEquipement = () => {
 .description-produit {
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
-  color: var(--text-secondary);
+  color: #718096;
   margin: 0 0 20px 0;
   line-height: 1.5;
   flex-grow: 1;
@@ -145,10 +145,10 @@ const reserverEquipement = () => {
   display: flex;
   gap: 12px;
   margin-bottom: 20px;
-  background-color: var(--bg-input);
+  background-color: #f8fafc;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid var(--border-subtile);
+  border: 1px solid #e2e8f0;
 }
 
 .champ-date {
@@ -162,7 +162,7 @@ const reserverEquipement = () => {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--text-secondary);
+  color: #a0aec0;
   letter-spacing: 0.5px;
 }
 
@@ -189,7 +189,7 @@ const reserverEquipement = () => {
   align-items: center;
   margin-top: auto;
   padding-top: 16px;
-  border-top: 1px solid var(--border-subtile);
+  border-top: 1px solid #e2e8f0;
 }
 
 .info-prix {
@@ -207,17 +207,18 @@ const reserverEquipement = () => {
 
 .prix-detail {
   font-size: 0.8rem;
-  color: var(--text-secondary);
+  color: #718096;
   margin-top: 4px;
   font-weight: 500;
 }
 
+/* --- CORRECTION DU BOUTON D'AJOUT --- */
 .bouton-ajouter-premium {
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background-color: var(--text-accent);
-  color: #ffffff;
+  background-color: #2c2520; /* Forcé en brun/noir pour contraste maximum */
+  color: #ffffff; /* Forcé en blanc pur */
   border: none;
   display: flex;
   align-items: center;
@@ -236,8 +237,8 @@ const reserverEquipement = () => {
 }
 
 .bouton-desactive {
-  background-color: var(--border-subtile);
-  color: var(--text-secondary);
+  background-color: #e2e8f0; /* Gris clair */
+  color: #a0aec0; /* Gris foncé */
   cursor: not-allowed;
 }
 
@@ -247,9 +248,9 @@ const reserverEquipement = () => {
 
 @media (max-width: 768px) {
   .conteneur-image {
-    margin: 12px 12px 0 12px;          /* Isole l'image des bords de la carte */
-    width: calc(100% - 24px);          /* Réduit la taille globale */
-    border-radius: 14px;               /* Applique la courbure esthétique */
+    margin: 12px 12px 0 12px;
+    width: calc(100% - 24px);
+    border-radius: 14px;
   }
   
   .contenu-carte {
