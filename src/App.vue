@@ -196,10 +196,12 @@ onMounted(async () => {
       @open-auth="afficherFormulaireAuth = true" 
     />
 
-    <main>
+   <main>
       <router-view 
-        :panier="panier" 
-        @ajouter-au-panier="ajouterAuPanier"
+       :panier="panier" 
+       :utilisateur="utilisateur" 
+       :profilClient="profilClient"
+       @ajouter-au-panier="ajouterAuPanier"
       />
     </main>
 

@@ -17,21 +17,62 @@ const lieuLivraison = ref('domicile_pt')
 const nomClient = ref('')
 const dateCommande = ref('')
 
+// --- GESTION PROMO ---
+const codePromoInput = ref('')
+const codeApplique = ref(null)
+
 const fraisLogistique = computed(() => {
-  if (modeLivraison.value === 'livraison') return lieuLivraison.value === 'mamoudzou' ? 3 : 2
+  if (modeLivraison.value === 'livraison') {
+    return lieuLivraison.value === 'mamoudzou' ? 3 : 2
+  }
   return 0 
 })
 
-const totalArticles = computed(() => props.panier.reduce((total, item) => total + (item.prix * item.quantite), 0))
-const totalGénéral = computed(() => totalArticles.value + fraisLogistique.value)
+const totalArticles = computed(() => {
+  return props.panier.reduce((total, item) => total + (item.prix * item.quantite), 0)
+})
+
+const calculerReduction = computed(() => {
+  if (!codeApplique.value) return 0
+  if (codeApplique.value.type_reduction === 'pourcentage') {
+    return totalArticles.value * (codeApplique.value.valeur / 100)
+  }
+  return codeApplique.value.valeur
+})
+
+const totalGénéral = computed(() => {
+  return totalArticles.value - calculerReduction.value + fraisLogistique.value
+})
+
+const verifierCodePromo = async () => {
+  const { data, error } = await supabase
+    .from('codes_promotionnels')
+    .select('*')
+    .eq('code', codePromoInput.value.toUpperCase())
+    .eq('est_actif', true)
+    .single()
+    
+  if (error || !data) {
+    alert("Code invalide ou expiré.")
+    codeApplique.value = null
+  } else {
+    codeApplique.value = data
+    alert(`Code appliqué ! -${data.valeur} ${data.type_reduction === 'pourcentage' ? '%' : '€'}`)
+  }
+}
 
 const modifierQuantite = (idUnique, changement) => {
   const index = props.panier.findIndex(item => item.idUnique === idUnique)
   if (index !== -1) {
     const nouveauPanier = [...props.panier]
     const nouvelleQuantite = nouveauPanier[index].quantite + changement
-    if (nouvelleQuantite <= 0) nouveauPanier.splice(index, 1)
-    else nouveauPanier[index] = { ...nouveauPanier[index], quantite: nouvelleQuantite }
+    
+    if (nouvelleQuantite <= 0) {
+      nouveauPanier.splice(index, 1)
+    } else {
+      nouveauPanier[index] = { ...nouveauPanier[index], quantite: nouvelleQuantite }
+    }
+    
     emit('update-panier', nouveauPanier)
     if (nouveauPanier.length === 0) emit('close-panier')
   }
@@ -43,21 +84,39 @@ const commanderSurWhatsApp = async () => {
     return
   }
 
-  let message = `*NOUVELLE COMMANDE*\nClient : ${nomClient.value}\nDate : ${dateCommande.value}\n`
-  let modeRecupTexte = modeLivraison.value === 'livraison' 
-    ? (lieuLivraison.value === 'mamoudzou' ? 'Livraison : Pied de la barge (Mamoudzou)' : 'Livraison : À domicile (Petite-Terre)')
-    : (lieuRetrait.value === 'labattoir' ? 'Click & Collect : 16A Rue Du Stade, Labattoir' : 'Click & Collect : Pied de la barge (Dzaoudzi)')
+  let message = `*NOUVELLE COMMANDE*\n`
+  message += `Client : ${nomClient.value}\n`
+  message += `Date : ${dateCommande.value}\n`
   
-  message += `Type : ${modeRecupTexte}\n--------------------------\n`
+  let modeRecupTexte = ""
+  if (modeLivraison.value === 'livraison') {
+    modeRecupTexte = lieuLivraison.value === 'mamoudzou' 
+      ? 'Livraison : Pied de la barge (Mamoudzou)' 
+      : 'Livraison : À domicile (Petite-Terre)'
+  } else {
+    modeRecupTexte = lieuRetrait.value === 'labattoir' 
+      ? 'Click & Collect : 16A Rue Du Stade, Labattoir' 
+      : 'Click & Collect : Pied de la barge (Dzaoudzi)'
+  }
+  message += `Type : ${modeRecupTexte}\n`
+  message += `--------------------------\n`
   
   props.panier.forEach(item => {
     message += `- ${item.quantite}x ${item.titre} - ${item.prix * item.quantite} €\n`
     if (item.typeElement === 'location') {
-      message += `  📅 Du ${item.dateDebut} au ${item.dateFin}\n  ⏳ Durée : ${item.duree} jour(s)\n`
+      message += `  📅 Du ${item.dateDebut} au ${item.dateFin}\n`
+      message += `  ⏳ Durée : ${item.duree} jour(s)\n`
     }
   })
   
-  message += `--------------------------\nSous-total : ${totalArticles.value} €\nFrais logistique : ${fraisLogistique.value} €\n*TOTAL À PAYER : ${totalGénéral.value} €*`
+  if (codeApplique.value) {
+    message += `Code promo : ${codeApplique.value.code} (-${calculerReduction.value} €)\n`
+  }
+  
+  message += `--------------------------\n`
+  message += `Sous-total : ${totalArticles.value} €\n`
+  message += `Frais logistique : ${fraisLogistique.value} €\n`
+  message += `*TOTAL À PAYER : ${totalGénéral.value} €*`
 
   const chargeUtileCommande = {
     client_id: props.utilisateur ? props.utilisateur.id : null,
@@ -67,7 +126,7 @@ const commanderSurWhatsApp = async () => {
     frais_logistique: fraisLogistique.value,
     total_general: totalGénéral.value,
     date_commande: dateCommande.value,
-    statut: 'En attente' // NORMALISATION
+    statut: 'En attente'
   }
 
   try {
@@ -75,8 +134,8 @@ const commanderSurWhatsApp = async () => {
     if (error) throw error
     emit('commander-whatsapp', { message, nomClient: nomClient.value, dateCommande: dateCommande.value })
   } catch (erreur) {
-    console.error(erreur.message)
-    alert("Erreur de connexion.")
+    console.error("Erreur d'enregistrement :", erreur.message)
+    alert("Une erreur de connexion a empêché l'enregistrement.")
   }
 }
 </script>
@@ -84,11 +143,13 @@ const commanderSurWhatsApp = async () => {
 <template>
   <div v-if="panierOuvert" class="panier-overlay" @click.self="$emit('close-panier')">
     <div class="panier-tiroir">
+      
       <div class="en-tete-tiroir">
         <h2>Votre Commande</h2>
-        <button class="bouton-fermer" @click="$emit('close-panier')" aria-label="Fermer">
+        <button class="bouton-fermer" @click="$emit('close-panier')" aria-label="Fermer le panier">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </div>
@@ -99,13 +160,17 @@ const commanderSurWhatsApp = async () => {
       </div>
 
       <div v-else class="contenu-panier">
+        
         <div class="liste-articles">
           <div v-for="item in panier" :key="item.idUnique" class="article-item">
             <div class="infos-article">
               <h4 class="titre-item">{{ item.titre }}</h4>
+              
               <div v-if="item.typeElement === 'location'" class="details-location">
-                📅 Du {{ item.dateDebut }} au {{ item.dateFin }}<br>⏳ Durée : {{ item.duree }} jour(s)
+                📅 Du {{ item.dateDebut }} au {{ item.dateFin }}<br>
+                ⏳ Durée : {{ item.duree }} jour(s)
               </div>
+              
               <p class="prix-unitaire">{{ item.prix }} € / unité</p>
             </div>
             <div class="actions-quantite">
@@ -117,17 +182,33 @@ const commanderSurWhatsApp = async () => {
         </div>
 
         <div class="section-formulaire">
+          <h3>Code Promo</h3>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" v-model="codePromoInput" placeholder="Entrez votre code" class="input-premium" />
+            <button @click="verifierCodePromo" class="bouton-sauvegarder">Appliquer</button>
+          </div>
+        </div>
+
+        <div class="section-formulaire">
           <h3>Mode de récupération</h3>
+          
           <div class="grille-options">
             <label class="carte-option" :class="{ 'option-active': modeLivraison === 'retrait' }">
               <input type="radio" v-model="modeLivraison" value="retrait" class="radio-cache" />
               <span class="emoji-option">📦</span>
-              <div class="texte-option"><strong>Click & Collect</strong><span>Gratuit</span></div>
+              <div class="texte-option">
+                <strong>Click & Collect</strong>
+                <span>Gratuit</span>
+              </div>
             </label>
+            
             <label class="carte-option" :class="{ 'option-active': modeLivraison === 'livraison' }">
               <input type="radio" v-model="modeLivraison" value="livraison" class="radio-cache" />
               <span class="emoji-option">🛵</span>
-              <div class="texte-option"><strong>Livraison</strong><span>À partir de 2 €</span></div>
+              <div class="texte-option">
+                <strong>Livraison</strong>
+                <span>À partir de 2 €</span>
+              </div>
             </label>
           </div>
 
@@ -150,15 +231,34 @@ const commanderSurWhatsApp = async () => {
 
         <div class="section-formulaire">
           <h3>Vos Informations</h3>
-          <div class="groupe-input"><label>Nom complet</label><input type="text" v-model="nomClient" placeholder="Ex: Ibrahim Ali" class="input-premium" /></div>
-          <div class="groupe-input"><label>Date de récupération :</label><input type="date" v-model="dateCommande" class="input-premium" /></div>
+          <div class="groupe-input">
+            <label>Nom complet</label>
+            <input type="text" v-model="nomClient" placeholder="Ex: Ibrahim Ali" class="input-premium" />
+          </div>
+          <div class="groupe-input">
+            <label>Date de récupération souhaitée :</label>
+            <input type="date" v-model="dateCommande" class="input-premium" />
+          </div>
         </div>
 
         <div class="zone-validation">
           <div class="recapitulatif">
-            <div class="ligne-recap"><span>Articles</span><span>{{ totalArticles }} €</span></div>
-            <div class="ligne-recap"><span>Frais logistiques</span><span>{{ fraisLogistique }} €</span></div>
-            <div class="ligne-recap total-final"><span>Total Général</span><span>{{ totalGénéral }} €</span></div>
+            <div class="ligne-recap">
+              <span>Articles</span>
+              <span>{{ totalArticles }} €</span>
+            </div>
+            <div class="ligne-recap" v-if="codeApplique">
+              <span>Réduction ({{ codeApplique.code }})</span>
+              <span style="color: #1e8e3e; font-weight: 600;">-{{ calculerReduction }} €</span>
+            </div>
+            <div class="ligne-recap">
+              <span>Frais logistiques</span>
+              <span>{{ fraisLogistique }} €</span>
+            </div>
+            <div class="ligne-recap total-final">
+              <span>Total Général</span>
+              <span>{{ totalGénéral }} €</span>
+            </div>
           </div>
 
           <button class="bouton-whatsapp" @click="commanderSurWhatsApp">
@@ -207,6 +307,7 @@ const commanderSurWhatsApp = async () => {
 .groupe-input label, .champ-supp label { font-size: 0.85rem; font-weight: 600; color: #4a5568; }
 .input-premium { width: 100%; padding: 14px 16px; border: 1px solid #d1d9e0; border-radius: 12px; background: #f8fafc; font-family: 'Inter', sans-serif; font-size: 0.95rem; color: #1f2833; transition: all 0.2s; appearance: none; -webkit-appearance: none; }
 .input-premium:focus { outline: none; border-color: #2b4c40; background: #ffffff; box-shadow: 0 0 0 3px rgba(43, 76, 64, 0.1); }
+.bouton-sauvegarder { background: #2b4c40; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
 .zone-validation { margin-top: auto; padding-top: 10px; }
 .recapitulatif { background: #ffffff; padding: 20px; border-radius: 20px; margin-bottom: 16px; border: 1px solid rgba(0,0,0,0.04); }
 .ligne-recap { display: flex; justify-content: space-between; margin-bottom: 12px; color: #6b7b8c; font-size: 0.95rem; font-family: 'Inter', sans-serif; }
