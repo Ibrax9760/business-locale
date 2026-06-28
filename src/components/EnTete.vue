@@ -49,10 +49,8 @@ const menuUtilisateurOuvert = ref(false)
 // ... (garde tout le code de gestion de scroll tel quel)
 
 const gererClicUtilisateur = () => {
-  console.log("Clic sur le bouton profil ! Utilisateur actuel :", props.utilisateur);
   
   if (!props.utilisateur) {
-    console.log("Utilisateur non connecté, émission de open-auth");
     emit('open-auth'); 
   } else {
     menuUtilisateurOuvert.value = !menuUtilisateurOuvert.value;

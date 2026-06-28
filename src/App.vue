@@ -43,15 +43,16 @@ const ajouterAuPanier = (article, estProduit = false) => {
   } else {
     // INJECTION ABSOLUE DES DATES DANS LE TABLEAU
     panier.value.push({ 
-      idUnique, 
-      titre: titreComplet, 
-      prix: prixFinal, 
-      quantite: 1, 
-      typeElement: estProduit ? 'gastronomie' : 'location',
-      dateDebut: estProduit ? null : article.dateDebutSelectionnee,
-      dateFin: estProduit ? null : article.dateFinSelectionnee,
-      duree: estProduit ? null : article.dureeJours 
-    });
+  idUnique, 
+  idBase: article.id, // Ajout de la référence stricte à la base de données
+  titre: titreComplet, 
+  prix: prixFinal, 
+  quantite: 1, 
+  typeElement: estProduit ? 'gastronomie' : 'location',
+  dateDebut: estProduit ? null : article.dateDebutSelectionnee,
+  dateFin: estProduit ? null : article.dateFinSelectionnee,
+  duree: estProduit ? null : article.dureeJours 
+  });
   }
   afficherNotification(`✅ ${titreComplet} ajouté au panier`);
 };

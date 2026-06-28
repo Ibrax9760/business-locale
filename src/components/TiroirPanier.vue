@@ -18,32 +18,20 @@ const nomClient = ref('')
 const dateCommande = ref('')
 
 const fraisLogistique = computed(() => {
-  if (modeLivraison.value === 'livraison') {
-    return lieuLivraison.value === 'mamoudzou' ? 3 : 2
-  }
+  if (modeLivraison.value === 'livraison') return lieuLivraison.value === 'mamoudzou' ? 3 : 2
   return 0 
 })
 
-const totalArticles = computed(() => {
-  return props.panier.reduce((total, item) => total + (item.prix * item.quantite), 0)
-})
-
-const totalGénéral = computed(() => {
-  return totalArticles.value + fraisLogistique.value
-})
+const totalArticles = computed(() => props.panier.reduce((total, item) => total + (item.prix * item.quantite), 0))
+const totalGénéral = computed(() => totalArticles.value + fraisLogistique.value)
 
 const modifierQuantite = (idUnique, changement) => {
   const index = props.panier.findIndex(item => item.idUnique === idUnique)
   if (index !== -1) {
     const nouveauPanier = [...props.panier]
     const nouvelleQuantite = nouveauPanier[index].quantite + changement
-    
-    if (nouvelleQuantite <= 0) {
-      nouveauPanier.splice(index, 1)
-    } else {
-      nouveauPanier[index] = { ...nouveauPanier[index], quantite: nouvelleQuantite }
-    }
-    
+    if (nouvelleQuantite <= 0) nouveauPanier.splice(index, 1)
+    else nouveauPanier[index] = { ...nouveauPanier[index], quantite: nouvelleQuantite }
     emit('update-panier', nouveauPanier)
     if (nouveauPanier.length === 0) emit('close-panier')
   }
@@ -55,36 +43,21 @@ const commanderSurWhatsApp = async () => {
     return
   }
 
-  let message = `*NOUVELLE COMMANDE*\n`
-  message += `Client : ${nomClient.value}\n`
-  message += `Date : ${dateCommande.value}\n`
+  let message = `*NOUVELLE COMMANDE*\nClient : ${nomClient.value}\nDate : ${dateCommande.value}\n`
+  let modeRecupTexte = modeLivraison.value === 'livraison' 
+    ? (lieuLivraison.value === 'mamoudzou' ? 'Livraison : Pied de la barge (Mamoudzou)' : 'Livraison : À domicile (Petite-Terre)')
+    : (lieuRetrait.value === 'labattoir' ? 'Click & Collect : 16A Rue Du Stade, Labattoir' : 'Click & Collect : Pied de la barge (Dzaoudzi)')
   
-  let modeRecupTexte = ""
-  if (modeLivraison.value === 'livraison') {
-    modeRecupTexte = lieuLivraison.value === 'mamoudzou' 
-      ? 'Livraison : Pied de la barge (Mamoudzou)' 
-      : 'Livraison : À domicile (Petite-Terre)'
-  } else {
-    modeRecupTexte = lieuRetrait.value === 'labattoir' 
-      ? 'Click & Collect : 16A Rue Du Stade, Labattoir' 
-      : 'Click & Collect : Pied de la barge (Dzaoudzi)'
-  }
-  message += `Type : ${modeRecupTexte}\n`
-  message += `--------------------------\n`
+  message += `Type : ${modeRecupTexte}\n--------------------------\n`
   
   props.panier.forEach(item => {
     message += `- ${item.quantite}x ${item.titre} - ${item.prix * item.quantite} €\n`
     if (item.typeElement === 'location') {
-      // CORRECTION : Appel des clés exactes (dateDebut, dateFin, duree)
-      message += `  📅 Du ${item.dateDebut} au ${item.dateFin}\n`
-      message += `  ⏳ Durée : ${item.duree} jour(s)\n`
+      message += `  📅 Du ${item.dateDebut} au ${item.dateFin}\n  ⏳ Durée : ${item.duree} jour(s)\n`
     }
   })
   
-  message += `--------------------------\n`
-  message += `Sous-total : ${totalArticles.value} €\n`
-  message += `Frais logistique : ${fraisLogistique.value} €\n`
-  message += `*TOTAL À PAYER : ${totalGénéral.value} €*`
+  message += `--------------------------\nSous-total : ${totalArticles.value} €\nFrais logistique : ${fraisLogistique.value} €\n*TOTAL À PAYER : ${totalGénéral.value} €*`
 
   const chargeUtileCommande = {
     client_id: props.utilisateur ? props.utilisateur.id : null,
@@ -93,21 +66,17 @@ const commanderSurWhatsApp = async () => {
     mode_recuperation: modeRecupTexte,
     frais_logistique: fraisLogistique.value,
     total_general: totalGénéral.value,
-    date_commande: dateCommande.value
+    date_commande: dateCommande.value,
+    statut: 'En attente' // NORMALISATION
   }
 
   try {
-    const { error } = await supabase
-      .from('commandes')
-      .insert([chargeUtileCommande])
-
+    const { error } = await supabase.from('commandes').insert([chargeUtileCommande])
     if (error) throw error
-
     emit('commander-whatsapp', { message, nomClient: nomClient.value, dateCommande: dateCommande.value })
-
   } catch (erreur) {
-    console.error("Erreur d'enregistrement :", erreur.message)
-    alert("Une erreur de connexion a empêché l'enregistrement.")
+    console.error(erreur.message)
+    alert("Erreur de connexion.")
   }
 }
 </script>
@@ -115,13 +84,11 @@ const commanderSurWhatsApp = async () => {
 <template>
   <div v-if="panierOuvert" class="panier-overlay" @click.self="$emit('close-panier')">
     <div class="panier-tiroir">
-      
       <div class="en-tete-tiroir">
         <h2>Votre Commande</h2>
-        <button class="bouton-fermer" @click="$emit('close-panier')" aria-label="Fermer le panier">
+        <button class="bouton-fermer" @click="$emit('close-panier')" aria-label="Fermer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
+            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
           </svg>
         </button>
       </div>
@@ -132,17 +99,13 @@ const commanderSurWhatsApp = async () => {
       </div>
 
       <div v-else class="contenu-panier">
-        
         <div class="liste-articles">
           <div v-for="item in panier" :key="item.idUnique" class="article-item">
             <div class="infos-article">
               <h4 class="titre-item">{{ item.titre }}</h4>
-              
               <div v-if="item.typeElement === 'location'" class="details-location">
-                📅 Du {{ item.dateDebut }} au {{ item.dateFin }}<br>
-                ⏳ Durée : {{ item.duree }} jour(s)
+                📅 Du {{ item.dateDebut }} au {{ item.dateFin }}<br>⏳ Durée : {{ item.duree }} jour(s)
               </div>
-              
               <p class="prix-unitaire">{{ item.prix }} € / unité</p>
             </div>
             <div class="actions-quantite">
@@ -155,24 +118,16 @@ const commanderSurWhatsApp = async () => {
 
         <div class="section-formulaire">
           <h3>Mode de récupération</h3>
-          
           <div class="grille-options">
             <label class="carte-option" :class="{ 'option-active': modeLivraison === 'retrait' }">
               <input type="radio" v-model="modeLivraison" value="retrait" class="radio-cache" />
               <span class="emoji-option">📦</span>
-              <div class="texte-option">
-                <strong>Click & Collect</strong>
-                <span>Gratuit</span>
-              </div>
+              <div class="texte-option"><strong>Click & Collect</strong><span>Gratuit</span></div>
             </label>
-            
             <label class="carte-option" :class="{ 'option-active': modeLivraison === 'livraison' }">
               <input type="radio" v-model="modeLivraison" value="livraison" class="radio-cache" />
               <span class="emoji-option">🛵</span>
-              <div class="texte-option">
-                <strong>Livraison</strong>
-                <span>À partir de 2 €</span>
-              </div>
+              <div class="texte-option"><strong>Livraison</strong><span>À partir de 2 €</span></div>
             </label>
           </div>
 
@@ -195,30 +150,15 @@ const commanderSurWhatsApp = async () => {
 
         <div class="section-formulaire">
           <h3>Vos Informations</h3>
-          <div class="groupe-input">
-            <label>Nom complet</label>
-            <input type="text" v-model="nomClient" placeholder="Ex: Ibrahim Ali" class="input-premium" />
-          </div>
-          <div class="groupe-input">
-            <label>Date de récupération souhaitée :</label>
-            <input type="date" v-model="dateCommande" class="input-premium" />
-          </div>
+          <div class="groupe-input"><label>Nom complet</label><input type="text" v-model="nomClient" placeholder="Ex: Ibrahim Ali" class="input-premium" /></div>
+          <div class="groupe-input"><label>Date de récupération :</label><input type="date" v-model="dateCommande" class="input-premium" /></div>
         </div>
 
         <div class="zone-validation">
           <div class="recapitulatif">
-            <div class="ligne-recap">
-              <span>Articles</span>
-              <span>{{ totalArticles }} €</span>
-            </div>
-            <div class="ligne-recap">
-              <span>Frais logistiques</span>
-              <span>{{ fraisLogistique }} €</span>
-            </div>
-            <div class="ligne-recap total-final">
-              <span>Total Général</span>
-              <span>{{ totalGénéral }} €</span>
-            </div>
+            <div class="ligne-recap"><span>Articles</span><span>{{ totalArticles }} €</span></div>
+            <div class="ligne-recap"><span>Frais logistiques</span><span>{{ fraisLogistique }} €</span></div>
+            <div class="ligne-recap total-final"><span>Total Général</span><span>{{ totalGénéral }} €</span></div>
           </div>
 
           <button class="bouton-whatsapp" @click="commanderSurWhatsApp">
@@ -234,7 +174,6 @@ const commanderSurWhatsApp = async () => {
 </template>
 
 <style scoped>
-/* Les styles restent strictement identiques */
 .panier-overlay { position: fixed; inset: 0; background: rgba(15, 20, 25, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 3000; display: flex; justify-content: flex-end; }
 .panier-tiroir { width: 100%; max-width: 420px; background: #fdfdfb; height: 100%; display: flex; flex-direction: column; box-shadow: -12px 0 40px rgba(0,0,0,0.1); animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes slideLeft { from { transform: translateX(100%); } to { transform: translateX(0); } }

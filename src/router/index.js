@@ -27,6 +27,5 @@ const router = createRouter({
   routes
 })
 
-console.log("Routeur initialisé :", router);
 
 export default router

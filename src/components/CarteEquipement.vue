@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { supabase } from '../utils/supabaseClient'
 
 const props = defineProps({
   equipement: Object
@@ -9,9 +10,60 @@ const emit = defineEmits(['ajouter-equipement'])
 
 const dateDebut = ref('')
 const dateFin = ref('')
+const datesIndisponibles = ref([])
+const erreurDisponibilite = ref('')
+
+// Génération de l'horodatage actuel (format YYYY-MM-DD) pour bloquer les dates passées
+const dateAujourdhui = new Date().toISOString().split('T')[0]
+
+// Phase d'hydratation : Récupération des conflits potentiels
+const chargerReservations = async () => {
+  const { data, error } = await supabase
+    .from('reservations_equipements')
+    .select('date_debut, date_fin')
+    .eq('equipement_id', props.equipement.id)
+    
+  if (!error && data) {
+    datesIndisponibles.value = data
+  }
+}
+
+onMounted(() => {
+  chargerReservations()
+})
+
+// Algorithme d'intersection spatio-temporelle
+const verifierChevauchement = () => {
+  erreurDisponibilite.value = '';
+  if (!dateDebut.value || !dateFin.value) return;
+
+  const debut = new Date(dateDebut.value);
+  const fin = new Date(dateFin.value);
+
+  // Vérification de la cohérence chronologique
+  if (fin < debut) {
+    erreurDisponibilite.value = "La date de fin doit succéder à la date de début.";
+    return;
+  }
+
+  // Évaluation des vecteurs de réservation
+  for (const res of datesIndisponibles.value) {
+    const resDebut = new Date(res.date_debut);
+    const resFin = new Date(res.date_fin);
+    
+    // Si l'intervalle sélectionné croise un intervalle existant (StartA <= EndB && EndA >= StartB)
+    if (debut <= resFin && fin >= resDebut) {
+      erreurDisponibilite.value = "Cet équipement est déjà réservé sur la période sélectionnée.";
+      return;
+    }
+  }
+}
+
+// Déclencheur réactif pour l'évaluation temporelle
+watch([dateDebut, dateFin], verifierChevauchement);
 
 const dureeLocation = computed(() => {
-  if (!dateDebut.value || !dateFin.value) return 0
+  if (!dateDebut.value || !dateFin.value || erreurDisponibilite.value !== '') return 0
   const debut = new Date(dateDebut.value)
   const fin = new Date(dateFin.value)
   const diffTemps = fin.getTime() - debut.getTime()
@@ -24,10 +76,8 @@ const prixTotal = computed(() => {
 })
 
 const reserverEquipement = () => {
-  if (dureeLocation.value <= 0) {
-    alert("Veuillez sélectionner des dates valides pour la location.")
-    return
-  }
+  if (dureeLocation.value <= 0 || erreurDisponibilite.value !== '') return
+  
   emit('ajouter-equipement', {
     ...props.equipement,
     dateDebutSelectionnee: dateDebut.value,
@@ -51,13 +101,15 @@ const reserverEquipement = () => {
       <div class="selecteur-dates-premium">
         <div class="champ-date">
           <label>Début</label>
-          <input type="date" v-model="dateDebut" class="input-date" />
+          <input type="date" v-model="dateDebut" :min="dateAujourdhui" class="input-date" />
         </div>
         <div class="champ-date">
           <label>Fin</label>
-          <input type="date" v-model="dateFin" class="input-date" />
+          <input type="date" v-model="dateFin" :min="dateDebut || dateAujourdhui" class="input-date" />
         </div>
       </div>
+      
+      <p v-if="erreurDisponibilite" class="alerte-disponibilite">{{ erreurDisponibilite }}</p>
 
       <div class="pied-carte">
         <div class="info-prix">
@@ -67,9 +119,9 @@ const reserverEquipement = () => {
         
         <button 
           class="bouton-ajouter-premium" 
-          :class="{ 'bouton-desactive': dureeLocation <= 0 }"
+          :class="{ 'bouton-desactive': dureeLocation <= 0 || erreurDisponibilite !== '' }"
           @click="reserverEquipement" 
-          :disabled="dureeLocation <= 0"
+          :disabled="dureeLocation <= 0 || erreurDisponibilite !== ''"
           aria-label="Réserver cet équipement"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -85,7 +137,6 @@ const reserverEquipement = () => {
 </template>
 
 <style scoped>
-/* Socle partagé avec la carte gastronomie */
 .carte-premium {
   display: flex;
   flex-direction: column;
@@ -98,163 +149,53 @@ const reserverEquipement = () => {
   transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.carte-premium:active {
-  transform: scale(0.98);
-}
+.carte-premium:active { transform: scale(0.98); }
+.conteneur-image { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; background-color: rgba(128, 128, 128, 0.1); }
+.image-produit { width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease; }
+.contenu-carte { padding: 20px; display: flex; flex-direction: column; flex-grow: 1; }
+.titre-produit { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; margin: 0 0 8px 0; color: inherit; }
+.description-produit { font-family: 'Inter', sans-serif; font-size: 0.9rem; color: #718096; margin: 0 0 20px 0; line-height: 1.5; flex-grow: 1; }
 
-.conteneur-image {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-  background-color: rgba(128, 128, 128, 0.1);
-}
-
-.image-produit {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.contenu-carte {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-}
-
-.titre-produit {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  color: inherit;
-}
-
-.description-produit {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  color: #718096;
-  margin: 0 0 20px 0;
-  line-height: 1.5;
-  flex-grow: 1;
-}
-
-/* Design spécifique du sélecteur de dates */
 .selecteur-dates-premium {
   display: flex;
   gap: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 8px; /* Réduit pour accommoder l'alerte éventuelle */
   background-color: #f8fafc;
   padding: 12px;
   border-radius: 14px;
   border: 1px solid #e2e8f0;
 }
 
-.champ-date {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.champ-date { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.champ-date label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #a0aec0; letter-spacing: 0.5px; }
+.input-date { background: transparent; border: none; padding: 0; font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 600; color: inherit; width: 100%; }
+.input-date:focus { outline: none; box-shadow: none; }
 
-.champ-date label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #a0aec0;
-  letter-spacing: 0.5px;
-}
-
-.input-date {
-  background: transparent;
-  border: none;
-  padding: 0;
+/* CSS explicite pour le module d'alerte */
+.alerte-disponibilite {
   font-family: 'Inter', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: inherit;
-  width: 100%;
-}
-
-.input-date:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-/* Zone d'action finale */
-.pied-carte {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
-}
-
-.info-prix {
-  display: flex;
-  flex-direction: column;
-}
-
-.prix-affiche {
-  font-family: 'Inter', sans-serif;
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: inherit;
-  line-height: 1;
-}
-
-.prix-detail {
   font-size: 0.8rem;
-  color: #718096;
-  margin-top: 4px;
-  font-weight: 500;
+  font-weight: 600;
+  color: #c53030;
+  background-color: #fff5f5;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 0 0 16px 0;
+  border: 1px solid #fed7d7;
 }
 
-/* --- CORRECTION DU BOUTON D'AJOUT --- */
-.bouton-ajouter-premium {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background-color: #2c2520; /* Forcé en brun/noir pour contraste maximum */
-  color: #ffffff; /* Forcé en blanc pur */
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.bouton-ajouter-premium svg {
-  width: 20px;
-  height: 20px;
-}
-
-.bouton-ajouter-premium:active {
-  transform: scale(0.85);
-}
-
-.bouton-desactive {
-  background-color: #e2e8f0; /* Gris clair */
-  color: #a0aec0; /* Gris foncé */
-  cursor: not-allowed;
-}
-
-.bouton-desactive:active {
-  transform: none;
-}
+.pied-carte { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.info-prix { display: flex; flex-direction: column; }
+.prix-affiche { font-family: 'Inter', sans-serif; font-size: 1.3rem; font-weight: 800; color: inherit; line-height: 1; }
+.prix-detail { font-size: 0.8rem; color: #718096; margin-top: 4px; font-weight: 500; }
+.bouton-ajouter-premium { width: 44px; height: 44px; border-radius: 12px; background-color: #2c2520; color: #ffffff; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s ease; }
+.bouton-ajouter-premium svg { width: 20px; height: 20px; }
+.bouton-ajouter-premium:active { transform: scale(0.85); }
+.bouton-desactive { background-color: #e2e8f0; color: #a0aec0; cursor: not-allowed; }
+.bouton-desactive:active { transform: none; }
 
 @media (max-width: 768px) {
-  .conteneur-image {
-    margin: 12px 12px 0 12px;
-    width: calc(100% - 24px);
-    border-radius: 14px;
-  }
-  
-  .contenu-carte {
-    padding: 16px;
-  }
+  .conteneur-image { margin: 12px 12px 0 12px; width: calc(100% - 24px); border-radius: 14px; }
+  .contenu-carte { padding: 16px; }
 }
 </style>
