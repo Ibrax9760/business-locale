@@ -28,29 +28,39 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
 <template>
   <div class="contenu-home"> 
     <section class="recherche-premium">
-      <h2 class="titre-recherche">Explorez notre carte</h2>
+      <div class="header-intro">
+        <span class="tagline">Traiteur de Prestige &amp; Location d'Équipements</span>
+        <h2 class="titre-recherche">L'Art de Recevoir sur Mesure</h2>
+        <p class="description-recherche">Découvrez nos créations culinaires raffinées et notre matériel haut de gamme pour vos événements à Mayotte.</p>
+      </div>
       
       <div class="barre-recherche-container">
-        <svg class="icone-loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="icone-loupe-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
         <input 
           type="text" 
           class="champ-recherche-premium" 
-          placeholder="Rechercher un plat, un équipement..." 
+          placeholder="Rechercher une saveur, un équipement..." 
           v-model="recherche" 
         />
       </div>
 
       <div class="filtres-scrollables">
-        <button class="chip-premium" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">Tout</button>
-        <button class="chip-premium" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">Gastronomie</button>
-        <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">Locations</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">Toutes nos offres</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">Gastronomie Fine</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">Matériel de Réception</button>
       </div>
     </section>
 
-    <section v-if="produitsFiltrés.length > 0">
+    <!-- SECTION GASTRONOMIE -->
+    <section v-if="produitsFiltrés.length > 0" class="section-catalogue">
+      <div class="section-header">
+        <h2 class="titre-section">Créations Gastronomiques</h2>
+        <p class="soustitre-section">Saveurs locales authentiques &amp; dressage d'exception</p>
+      </div>
+      
       <div class="grille-produits">
         <CarteProduit 
           v-for="produit in produitsFiltrés" 
@@ -61,8 +71,13 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
       </div>
     </section>
 
-    <section v-if="equipementsFiltrés.length > 0">
-      <h2>Location d'Équipements</h2>
+    <!-- SECTION LOCATION -->
+    <section v-if="equipementsFiltrés.length > 0" class="section-catalogue">
+      <div class="section-header">
+        <h2 class="titre-section">Matériel en Location</h2>
+        <p class="soustitre-section">Équipez vos événements avec notre matériel professionnel sélectionné</p>
+      </div>
+      
       <div class="grille-equipements">
         <CarteEquipement 
           v-for="equipement in equipementsFiltrés" 
@@ -74,3 +89,88 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
     </section>
   </div>
 </template>
+
+<style scoped>
+.contenu-home {
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.header-intro {
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.tagline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent-gold-dark);
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.titre-recherche {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.description-recherche {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.section-catalogue {
+  margin-top: 48px;
+  margin-bottom: 56px;
+}
+
+.section-header {
+  margin-bottom: 32px;
+  border-left: 3px solid var(--accent-gold);
+  padding-left: 16px;
+}
+
+.titre-section {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+}
+
+.soustitre-section {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0;
+  font-weight: 500;
+}
+
+@media (max-width: 768px) {
+  .titre-recherche {
+    font-size: 1.8rem;
+  }
+  .section-catalogue {
+    margin-top: 36px;
+    margin-bottom: 40px;
+  }
+  .section-header {
+    margin-bottom: 24px;
+  }
+  .titre-section {
+    font-size: 1.5rem;
+  }
+}
+</style>

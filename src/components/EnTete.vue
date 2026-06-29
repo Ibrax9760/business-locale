@@ -1,8 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-
 import { useRouter, useRoute } from 'vue-router'
-
 
 const masquerBarreMobile = ref(false)
 let dernierePositionScroll = 0;
@@ -43,13 +41,11 @@ const props = defineProps({
   panierLength: Number
 })
 
-const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth']) // 3. Supprime toggle-vendeur et toggle-admin ici
+const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth'])
 
 const menuUtilisateurOuvert = ref(false)
-// ... (garde tout le code de gestion de scroll tel quel)
 
 const gererClicUtilisateur = () => {
-  
   if (!props.utilisateur) {
     emit('open-auth'); 
   } else {
@@ -57,15 +53,13 @@ const gererClicUtilisateur = () => {
   }
 }
 
-
-// 4. Modifie ces fonctions pour utiliser router.push au lieu de emit
 const actionnerAdmin = () => {
-  router.push('/admin') // Navigation directe
+  router.push('/admin')
   menuUtilisateurOuvert.value = false
 }
 
 const actionnerVendeur = () => {
-  router.push('/vendeur') // Navigation directe
+  router.push('/vendeur')
   menuUtilisateurOuvert.value = false
 }
 
@@ -78,67 +72,68 @@ const actionnerDeconnexion = () => {
 <template>
   <header class="navbar-premium">
     <div class="nav-zone nav-gauche zone-desktop">
-      
       <button 
         v-if="route.path !== '/'" 
         @click="router.push('/')" 
         class="bouton-retour"
         title="Retour au catalogue"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icone-retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icone-retour">
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
-        Retour
+        <span>Retour</span>
       </button>
 
       <button class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="svg-profil">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
         <span v-if="utilisateur && profilClient?.nom" class="nom-utilisateur">{{ profilClient.nom }}</span>
       </button>
 
-      <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel menu-desktop">
-        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="9"></rect>
-            <rect x="14" y="3" width="7" height="5"></rect>
-            <rect x="14" y="12" width="7" height="9"></rect>
-            <rect x="3" y="16" width="7" height="5"></rect>
-          </svg>
-          Espace Administrateur
-        </button>
+      <transition name="menu-fade">
+        <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel menu-desktop">
+          <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9"></rect>
+              <rect x="14" y="3" width="7" height="5"></rect>
+              <rect x="14" y="12" width="7" height="9"></rect>
+              <rect x="3" y="16" width="7" height="5"></rect>
+            </svg>
+            Espace Administrateur
+          </button>
 
-        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-          Espace Vendeur
-        </button>
+          <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            Espace Vendeur
+          </button>
 
-        <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-          Déconnexion
-        </button>
-      </div>
+          <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Déconnexion
+          </button>
+        </div>
+      </transition>
     </div>
 
     <div class="nav-zone nav-centre">
-      <h1 class="titre-marque">
+      <h1 class="titre-marque" @click="router.push('/')">
         <span class="icone-panier-mignon">🧺</span>
-        MA BOUTIQUE LOCALE
+        <span class="texte-boutique">MA BOUTIQUE LOCALE</span>
       </h1>
     </div>
 
     <div class="nav-zone nav-droite zone-desktop">
-      <button class="bouton-icone" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
+      <button class="bouton-icone panier-btn" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
           <circle cx="20" cy="21" r="1"></circle>
@@ -153,7 +148,7 @@ const actionnerDeconnexion = () => {
     <button 
       v-if="route.path !== '/'" 
       @click="router.push('/')" 
-      class="bouton-icone" 
+      class="bouton-icone-mobile" 
       aria-label="Retour au catalogue"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -163,44 +158,46 @@ const actionnerDeconnexion = () => {
     </button>
 
     <div class="conteneur-profil-mobile">
-      <button class="bouton-icone" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
+      <button class="bouton-icone-mobile" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
         </svg>
       </button>
       
-      <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel menu-mobile">
-        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="7" height="9"></rect>
-            <rect x="14" y="3" width="7" height="5"></rect>
-            <rect x="14" y="12" width="7" height="9"></rect>
-            <rect x="3" y="16" width="7" height="5"></rect>
-          </svg>
-          Espace Administrateur
-        </button>
+      <transition name="menu-fade">
+        <div v-if="utilisateur && menuUtilisateurOuvert" class="menu-contextuel menu-mobile">
+          <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="9"></rect>
+              <rect x="14" y="3" width="7" height="5"></rect>
+              <rect x="14" y="12" width="7" height="9"></rect>
+              <rect x="3" y="16" width="7" height="5"></rect>
+            </svg>
+            Espace Administrateur
+          </button>
 
-        <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-            <polyline points="9 22 9 12 15 12 15 22"></polyline>
-          </svg>
-          Espace Vendeur
-        </button>
+          <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            Espace Vendeur
+          </button>
 
-        <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-            <polyline points="16 17 21 12 16 7"></polyline>
-            <line x1="21" y1="12" x2="9" y2="12"></line>
-          </svg>
-          Déconnexion
-        </button>
-      </div>
+          <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Déconnexion
+          </button>
+        </div>
+      </transition>
     </div>
 
-    <button class="bouton-icone" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
+    <button class="bouton-icone-mobile" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="9" cy="21" r="1"></circle>
         <circle cx="20" cy="21" r="1"></circle>
@@ -215,55 +212,253 @@ const actionnerDeconnexion = () => {
 
 <style scoped>
 /* Configuration de la barre de navigation principale */
-.navbar-premium { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; position: sticky; top: 0; z-index: 1000; background-color: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(0, 0, 0, 0.05); }
-.nav-zone { display: flex; align-items: center; }
+.navbar-premium { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 16px 40px; 
+  position: sticky; 
+  top: 0; 
+  z-index: 1000; 
+  background-color: rgba(253, 252, 249, 0.85); /* Frosted linen */
+  backdrop-filter: blur(20px); 
+  -webkit-backdrop-filter: blur(20px); 
+  border-bottom: 1px solid var(--border-subtile);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.015);
+}
 
-/* Ajout d'un espacement (gap) pour séparer le bouton retour du profil */
-.nav-gauche { flex: 1; justify-content: flex-start; position: relative; gap: 12px; }
+.nav-zone { display: flex; align-items: center; }
+.nav-gauche { flex: 1; justify-content: flex-start; position: relative; gap: 20px; }
 .nav-centre { flex: 2; justify-content: center; }
 .nav-droite { flex: 1; justify-content: flex-end; }
 
-/* --- NOUVEAU : Styles du Bouton Retour --- */
-.bouton-retour { display: flex; align-items: center; gap: 8px; background: #f8fafc; border: 1px solid #d1d9e0; padding: 6px 14px; border-radius: 99px; cursor: pointer; font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 600; color: #3b302a; transition: all 0.2s ease; }
-.bouton-retour:hover { background: #e2e8f0; transform: translateX(-2px); }
-.icone-retour { width: 16px; height: 16px; }
+/* --- Bouton Retour de luxe --- */
+.bouton-retour { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  background: var(--bg-carte); 
+  border: 1px solid var(--border-subtile); 
+  padding: 8px 18px; 
+  border-radius: 99px; 
+  cursor: pointer; 
+  font-family: 'Inter', sans-serif; 
+  font-size: 0.85rem; 
+  font-weight: 600; 
+  color: var(--text-primary); 
+  box-shadow: var(--shadow-douce);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+}
+.bouton-retour:hover { 
+  background: var(--accent-gold-light); 
+  border-color: var(--accent-gold);
+  transform: translateX(-4px); 
+}
+.icone-retour { width: 14px; height: 14px; color: var(--text-primary); }
 
-/* Typographie et éléments graphiques */
-.titre-marque { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 700; margin: 0; color: #3b302a; letter-spacing: 0.5px; text-align: center; white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.icone-panier-mignon { font-size: 1.3rem; line-height: 1; }
+/* Branding Premium */
+.titre-marque { 
+  font-family: 'Playfair Display', serif; 
+  font-size: 1.35rem; 
+  font-weight: 700; 
+  margin: 0; 
+  color: var(--text-primary); 
+  letter-spacing: 2px; 
+  text-align: center; 
+  white-space: nowrap; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.titre-marque:hover {
+  color: var(--accent-gold-dark);
+}
+.texte-boutique {
+  border-bottom: 2px solid transparent;
+  padding-bottom: 2px;
+}
+.titre-marque:hover .texte-boutique {
+  border-color: var(--accent-gold);
+}
+.icone-panier-mignon { font-size: 1.45rem; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); }
 
-/* Boutons d'icônes standards */
-.bouton-icone { background: transparent; border: none; padding: 8px; cursor: pointer; color: #3b302a; display: flex; align-items: center; justify-content: center; position: relative; transition: opacity 0.2s; }
-.profil-btn { gap: 8px; }
-.nom-utilisateur { font-family: 'Inter', sans-serif; font-size: 0.95rem; font-weight: 600; color: #3b302a; }
-.bouton-icone:active { opacity: 0.6; }
-.bouton-icone svg { width: 24px; height: 24px; }
-.badge-panier { position: absolute; top: 2px; right: 0px; background-color: #bc6c46; color: white; font-size: 0.7rem; font-weight: 700; font-family: 'Inter', sans-serif; height: 18px; min-width: 18px; border-radius: 9px; display: flex; align-items: center; justify-content: center; padding: 0 4px; transform: translate(25%, -25%); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+/* Boutons d'icônes standard */
+.bouton-icone { 
+  background: var(--bg-carte); 
+  border: 1px solid var(--border-subtile);
+  padding: 10px; 
+  border-radius: 14px;
+  cursor: pointer; 
+  color: var(--text-primary); 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  position: relative; 
+  box-shadow: var(--shadow-douce);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+}
+.bouton-icone:hover {
+  border-color: var(--accent-gold);
+  background-color: var(--accent-gold-light);
+  transform: translateY(-2px);
+}
+.bouton-icone:active { 
+  transform: translateY(0); 
+}
+.profil-btn { 
+  gap: 10px; 
+  padding: 8px 16px;
+}
+.nom-utilisateur { 
+  font-family: 'Inter', sans-serif; 
+  font-size: 0.9rem; 
+  font-weight: 600; 
+  color: var(--text-primary); 
+}
+.bouton-icone svg { width: 20px; height: 20px; color: var(--text-primary); }
 
-/* Menus contextuels (Modales profil) */
-.menu-contextuel { position: absolute; background-color: #ffffff; border: 1px solid #e0dcd3; border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); min-width: 200px; overflow: hidden; z-index: 1001; padding: 8px 0; }
-.menu-desktop { top: 100%; left: 0; margin-top: 12px; }
-.menu-mobile { bottom: calc(100% + 14px); left: 50%; transform: translateX(-50%); }
-.menu-action { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: transparent; border: none; color: #3b302a; font-family: 'Inter', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; text-align: left; transition: background-color 0.2s; }
-.menu-action:hover { background-color: #f8f6f0; }
-.menu-action svg { width: 18px; height: 18px; opacity: 0.7; }
+.badge-panier { 
+  position: absolute; 
+  top: -4px; 
+  right: -4px; 
+  background-color: var(--accent-green); 
+  color: white; 
+  font-size: 0.7rem; 
+  font-weight: 700; 
+  font-family: 'Inter', sans-serif; 
+  height: 20px; 
+  min-width: 20px; 
+  border-radius: 50%; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  padding: 0 4px; 
+  border: 2px solid var(--bg-carte);
+  box-shadow: 0 4px 10px rgba(38, 70, 60, 0.25); 
+}
+
+/* Menus contextuels (Dropdowns) */
+.menu-contextuel { 
+  position: absolute; 
+  background-color: rgba(255, 255, 255, 0.95); 
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtile); 
+  border-radius: 20px; 
+  box-shadow: var(--shadow-premium); 
+  min-width: 230px; 
+  overflow: hidden; 
+  z-index: 1001; 
+  padding: 10px 0; 
+}
+.menu-desktop { top: 100%; left: 0; margin-top: 14px; }
+.menu-mobile { bottom: calc(100% + 16px); left: 50%; transform: translateX(-50%); }
+
+.menu-action { 
+  width: 100%; 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  padding: 12px 20px; 
+  background: transparent; 
+  border: none; 
+  color: var(--text-primary); 
+  font-family: 'Inter', sans-serif; 
+  font-size: 0.9rem; 
+  font-weight: 600; 
+  cursor: pointer; 
+  text-align: left; 
+  transition: all 0.2s ease; 
+}
+.menu-action:hover { 
+  background-color: var(--accent-gold-light); 
+  color: var(--accent-gold-dark);
+  padding-left: 24px;
+}
+.menu-action svg { width: 16px; height: 16px; opacity: 0.8; transition: transform 0.2s; }
+.menu-action:hover svg {
+  transform: scale(1.1);
+}
 .action-danger { color: #b35034; }
-.action-danger svg { opacity: 1; }
+.action-danger:hover {
+  background-color: #fff5f5;
+  color: #c53030;
+}
 .calque-fermeture { position: fixed; inset: 0; z-index: 900; cursor: default; }
 
-/* Responsive et interface mobile */
+/* Transitions Menu Dropdown */
+.menu-fade-enter-active,
+.menu-fade-leave-active {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.menu-fade-enter-from,
+.menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px) translateX(0);
+}
+.menu-desktop.menu-fade-enter-from,
+.menu-desktop.menu-fade-leave-to {
+  transform: translateY(10px);
+}
+.menu-mobile.menu-fade-enter-from,
+.menu-mobile.menu-fade-leave-to {
+  transform: translateY(10px) translateX(-50%);
+}
+
+/* Interface Mobile & Tablette */
 .zone-mobile { display: none; }
 
-/* Ajustement de la barre mobile : Réduction du gap et du padding pour intégrer les 3 boutons */
-.barre-mobile { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(0); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto; min-width: 160px; gap: 28px; background-color: rgba(255, 255, 255, 0.90); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 99px; justify-content: center; align-items: center; padding: 10px 24px; z-index: 1000; box-shadow: 0 12px 32px rgba(59, 48, 42, 0.15); }
-.barre-cachee { transform: translateX(-50%) translateY(150%); }
+.barre-mobile { 
+  position: fixed; 
+  bottom: 28px; 
+  left: 50%; 
+  transform: translateX(-50%) translateY(0); 
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+  width: auto; 
+  min-width: 190px; 
+  gap: 32px; 
+  background-color: rgba(255, 255, 255, 0.90); 
+  backdrop-filter: blur(24px); 
+  -webkit-backdrop-filter: blur(24px); 
+  border: 1px solid rgba(197, 164, 126, 0.25); 
+  border-radius: 99px; 
+  justify-content: center; 
+  align-items: center; 
+  padding: 12px 32px; 
+  z-index: 1000; 
+  box-shadow: 0 16px 40px rgba(31, 27, 24, 0.15); 
+}
+.barre-cachee { transform: translateX(-50%) translateY(160%); }
 .conteneur-profil-mobile { position: relative; }
+
+.bouton-icone-mobile {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.2s;
+}
+.bouton-icone-mobile:active {
+  transform: scale(0.9);
+}
+.bouton-icone-mobile svg {
+  width: 24px;
+  height: 24px;
+}
 
 @media (max-width: 768px) { 
   .zone-desktop { display: none !important; } 
   .zone-mobile { display: flex; } 
   .nav-centre { flex: 1; } 
-  .navbar-premium { padding: 12px; } 
-  .titre-marque { font-size: 1rem; } 
+  .navbar-premium { padding: 16px 20px; } 
+  .titre-marque { font-size: 1.1rem; } 
 }
 </style>

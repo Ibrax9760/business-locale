@@ -36,6 +36,7 @@ const ajouterAuPanier = () => {
   <article class="carte-premium">
     <div class="conteneur-image">
       <img :src="produit.image_url" :alt="produit.titre" class="image-produit" loading="lazy" />
+      <span class="badge-tag">Gastronomie</span>
     </div>
     
     <div class="contenu-carte">
@@ -55,9 +56,12 @@ const ajouterAuPanier = () => {
       </div>
 
       <div class="pied-carte">
-        <span class="prix-affiche">
-          {{ varianteActive ? varianteActive.prix : (produit.variantes?.[0]?.prix || 0) }} €
-        </span>
+        <div class="zone-prix">
+          <span class="label-prix">Prix</span>
+          <span class="prix-affiche">
+            {{ varianteActive ? varianteActive.prix : (produit.variantes?.[0]?.prix || 0) }} €
+          </span>
+        </div>
         <button class="bouton-ajouter-premium" @click="ajouterAuPanier" aria-label="Ajouter au panier">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -70,7 +74,6 @@ const ajouterAuPanier = () => {
 </template>
 
 <style scoped>
-/* Héritage dynamique des couleurs globales de App.vue */
 .carte-premium {
   display: flex;
   flex-direction: column;
@@ -80,30 +83,54 @@ const ajouterAuPanier = () => {
   border-radius: var(--radius-carte);
   overflow: hidden;
   box-shadow: var(--shadow-douce);
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.carte-premium:active {
-  transform: scale(0.98);
+.carte-premium:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-premium), var(--shadow-hover);
+  border-color: rgba(197, 164, 126, 0.4);
 }
 
 .conteneur-image {
   width: 100%;
-  aspect-ratio: 4 / 3; /* Ratio standard photographique */
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   position: relative;
-  background-color: rgba(128, 128, 128, 0.1); /* Squelette de chargement visuel */
+  background-color: #f7f6f2;
 }
 
 .image-produit {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.carte-premium:hover .image-produit {
+  transform: scale(1.05);
+}
+
+.badge-tag {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent-green);
+  border: 1px solid rgba(197, 164, 126, 0.15);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
 }
 
 .contenu-carte {
-  padding: 20px;
+  padding: 24px;
   display: flex;
   flex-direction: column;
   flex-grow: 1;
@@ -111,18 +138,19 @@ const ajouterAuPanier = () => {
 
 .titre-produit {
   font-family: 'Playfair Display', serif;
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 700;
-  margin: 0 0 8px 0;
-  color: inherit;
+  margin: 0 0 10px 0;
+  color: var(--text-primary);
+  line-height: 1.3;
 }
 
 .description-produit {
   font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
   color: var(--text-secondary);
-  margin: 0 0 16px 0;
-  line-height: 1.5;
+  margin: 0 0 20px 0;
+  line-height: 1.6;
   flex-grow: 1;
 }
 
@@ -131,58 +159,36 @@ const ajouterAuPanier = () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .pilule-format {
   flex: 1;
-  min-width: 70px;
-  padding: 10px 4px;
+  min-width: 80px;
+  padding: 10px 14px;
   border-radius: 12px;
-  
-  /* Style INACTIF (grisé) */
-  border: 2px solid rgba(128, 128, 128, 0.15);
-  background: transparent;
-  color: inherit;
-  opacity: 0.5;
-  
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-secondary);
   font-family: 'Inter', sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   text-align: center;
 }
 
-/* Style ACTIF commun (opacité totale, légère ombre) */
+.pilule-format:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+  background: var(--accent-gold-light);
+}
+
 .pilule-format.active {
-  opacity: 1;
+  background-color: var(--accent-green);
+  color: #ffffff;
   border-color: transparent;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Forçage chromatique extrême pour le mode Clair (Blanc) */
-@media (prefers-color-scheme: light) {
-  .pilule-format.active { 
-    background-color: #1a1d20; /* Noir profond */
-    color: #ffffff;            /* Texte blanc */
-  }
-}
-
-/* Forçage chromatique extrême pour le mode Sombre (Noir) */
-@media (prefers-color-scheme: dark) {
-  .pilule-format.active { 
-    background-color: #f8f9fa; /* Blanc pur */
-    color: #090a0f;            /* Texte noir */
-  }
-}
-
-/* Gestion chromatique stricte du texte sur la pilule active */
-@media (prefers-color-scheme: light) {
-  .pilule-format.active { color: #ffffff; }
-}
-@media (prefers-color-scheme: dark) {
-  .pilule-format.active { color: #090a0f; }
+  box-shadow: 0 8px 16px rgba(38, 70, 60, 0.15);
 }
 
 /* Zone d'action finale */
@@ -191,21 +197,35 @@ const ajouterAuPanier = () => {
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
-  padding-top: 16px;
+  padding-top: 18px;
   border-top: 1px solid var(--border-subtile);
+}
+
+.zone-prix {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label-prix {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
 }
 
 .prix-affiche {
   font-family: 'Inter', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.35rem;
   font-weight: 800;
-  color: inherit;
+  color: var(--text-primary);
 }
 
 .bouton-ajouter-premium {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   background-color: var(--btn-primary);
   color: var(--btn-primary-text);
   border: none;
@@ -213,27 +233,35 @@ const ajouterAuPanier = () => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  box-shadow: 0 6px 16px rgba(38, 70, 60, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .bouton-ajouter-premium svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
+  transition: transform 0.3s ease;
+}
+
+.bouton-ajouter-premium:hover {
+  background-color: #1e362e;
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 8px 20px rgba(38, 70, 60, 0.3);
 }
 
 .bouton-ajouter-premium:active {
-  transform: scale(0.85);
+  transform: scale(0.95);
 }
 
 @media (max-width: 768px) {
   .conteneur-image {
-    margin: 12px 12px 0 12px;          /* Isole l'image des bords de la carte */
-    width: calc(100% - 24px);          /* Réduit proportionnellement la largeur */
-    border-radius: 14px;               /* Arrondit les 4 angles de l'image */
+    margin: 12px 12px 0 12px;
+    width: calc(100% - 24px);
+    border-radius: 16px;
   }
   
   .contenu-carte {
-    padding: 16px;                     /* Ajuste les espacements textuels */
+    padding: 18px;
   }
 }
 </style>
