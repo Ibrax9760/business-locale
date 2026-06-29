@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { supabase } from './utils/supabaseClient';
 import EnTete from './components/EnTete.vue';
 import TiroirPanier from './components/TiroirPanier.vue';
@@ -11,6 +11,13 @@ const panier = ref([]);
 const panierOuvert = ref(false);
 const notification = ref({ active: false, message: '' });
 
+// --- ÉTATS PARAMÈTRES (CARTE BLANCHE) ---
+const afficherParametres = ref(false);
+const themeActuel = ref(localStorage.getItem('app-theme') || 'theme-ecru');
+const nomProfilInput = ref('');
+const langueChoisie = ref(localStorage.getItem('app-lang') || 'fr');
+const statsNombreCommandes = ref(0);
+
 // --- ÉTATS AUTHENTIFICATION ---
 const afficherFormulaireAuth = ref(false);
 const estModeInscription = ref(false);
@@ -18,6 +25,11 @@ const emailInput = ref('');
 const motDePasseInput = ref('');
 const nomInput = ref('');
 const messageErreur = ref('');
+
+// --- WATCHER DE THÈME SUR LE BODY ---
+watch(themeActuel, (nouveauTheme) => {
+  document.body.className = nouveauTheme;
+}, { immediate: true });
 
 // --- FONCTIONS DE BASE ---
 const afficherNotification = (texte) => {
@@ -70,7 +82,21 @@ const executerDeconnexion = async () => {
   window.location.reload();
 };
 
-// --- MÉCANISME D'HYDRATATION DU PROFIL ---
+// --- PARAMÈTRES & PROFIL UTILS ---
+const chargerStatsUtilisateur = async (userId) => {
+  try {
+    const { count, error } = await supabase
+      .from('commandes')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', userId)
+    if (!error) {
+      statsNombreCommandes.value = count || 0;
+    }
+  } catch (err) {
+    console.error("Erreur de chargement des stats utilisateur :", err);
+  }
+};
+
 const recupererProfil = async (userId) => {
   try {
     const { data, error } = await supabase
@@ -81,8 +107,48 @@ const recupererProfil = async (userId) => {
       
     if (error) throw error;
     profilClient.value = data;
+    nomProfilInput.value = data.nom || '';
+    await chargerStatsUtilisateur(userId);
   } catch (error) {
     console.error("Échec de la récupération des attributs du profil :", error.message);
+  }
+};
+
+const modifierProfil = async () => {
+  try {
+    const { error } = await supabase
+      .from('profils')
+      .update({ nom: nomProfilInput.value })
+      .eq('id', utilisateur.value.id);
+      
+    if (error) throw error;
+    profilClient.value.nom = nomProfilInput.value;
+    afficherNotification("Votre profil a été mis à jour !");
+    afficherParametres.value = false;
+  } catch (err) {
+    console.error("Erreur de modification du profil :", err.message);
+    afficherNotification("Impossible de mettre à jour le profil.");
+  }
+};
+
+const changerTheme = (nouveauTheme) => {
+  themeActuel.value = nouveauTheme;
+  localStorage.setItem('app-theme', nouveauTheme);
+};
+
+const changerLangue = (nouvelleLangue) => {
+  langueChoisie.value = nouvelleLangue;
+  localStorage.setItem('app-lang', nouvelleLangue);
+  afficherNotification(`Langue modifiée avec succès : ${nouvelleLangue === 'fr' ? 'Français' : 'Shimaore'}`);
+};
+
+const reinitialiserApp = () => {
+  if (confirm("Réinitialiser le cache supprimera votre panier en cours et vos préférences de thème. Voulez-vous continuer ?")) {
+    localStorage.clear();
+    panier.value = [];
+    themeActuel.value = 'theme-ecru';
+    langueChoisie.value = 'fr';
+    window.location.reload();
   }
 };
 
@@ -190,6 +256,105 @@ onMounted(async () => {
       </div>
     </transition>
 
+    <!-- MODAL DE PARAMÈTRES (THEMES & INFOS) -->
+    <transition name="modal-pop">
+      <div v-if="afficherParametres" class="modal-overlay" @click.self="afficherParametres = false">
+        <div class="modal-auth modal-settings">
+          <button class="bouton-fermer-auth" @click="afficherParametres = false" aria-label="Fermer">✖</button>
+          
+          <h2 class="titre-modal">Paramètres</h2>
+          <p class="soustitre-modal">Personnalisez votre espace local</p>
+
+          <div class="sections-settings">
+            
+            <!-- Choix du Thème -->
+            <div class="section-settings-bloc">
+              <h3 class="titre-section-settings">🎨 Thème visuel</h3>
+              <div class="selecteur-themes-premium">
+                <button 
+                  class="btn-theme-option ecru"
+                  :class="{ actif: themeActuel === 'theme-ecru' }"
+                  @click="changerTheme('theme-ecru')"
+                >
+                  <span class="cercle-couleur" style="background: #faf9f6; border: 1px solid #c5a47e;"></span>
+                  Écru
+                </button>
+                <button 
+                  class="btn-theme-option pure-white"
+                  :class="{ actif: themeActuel === 'theme-pure-white' }"
+                  @click="changerTheme('theme-pure-white')"
+                >
+                  <span class="cercle-couleur" style="background: #ffffff; border: 1px solid #d1d9e0;"></span>
+                  Blanc
+                </button>
+                <button 
+                  class="btn-theme-option sombre"
+                  :class="{ actif: themeActuel === 'theme-sombre' }"
+                  @click="changerTheme('theme-sombre')"
+                >
+                  <span class="cercle-couleur" style="background: #0e0c0b; border: 1px solid #d8b88f;"></span>
+                  Sombre
+                </button>
+              </div>
+            </div>
+
+            <!-- Infos Profil -->
+            <div v-if="utilisateur" class="section-settings-bloc">
+              <h3 class="titre-section-settings">👤 Mon profil</h3>
+              <form @submit.prevent="modifierProfil">
+                <div class="groupe-champ">
+                  <label>Adresse Email (Non modifiable)</label>
+                  <input type="email" :value="utilisateur.email" disabled class="input-desactive" />
+                </div>
+                <div class="groupe-champ">
+                  <label>Nom complet</label>
+                  <input type="text" v-model="nomProfilInput" required />
+                </div>
+                <button type="submit" class="bouton-valider-auth" style="margin-top: 8px;">
+                  Enregistrer les modifications
+                </button>
+              </form>
+            </div>
+
+            <!-- Langues d'affichage -->
+            <div class="section-settings-bloc">
+              <h3 class="titre-section-settings">🌍 Langue d'affichage</h3>
+              <div class="selecteur-langues-premium">
+                <div class="btn-langues-container">
+                  <button 
+                    class="btn-langue-option"
+                    :class="{ actif: langueChoisie === 'fr' }"
+                    @click="changerLangue('fr')"
+                  >
+                    Français
+                  </button>
+                  <button 
+                    class="btn-langue-option"
+                    :class="{ actif: langueChoisie === 'sh' }"
+                    @click="changerLangue('sh')"
+                  >
+                    Shimaore (Mayotte)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cache & Stats -->
+            <div class="section-settings-bloc stats-cache-container">
+              <div v-if="utilisateur" class="stat-badge-premium">
+                <span class="stat-chiffre">{{ statsNombreCommandes }}</span>
+                <span class="stat-label">Commandes</span>
+              </div>
+              <button class="btn-clear-cache" @click="reinitialiserApp">
+                🧹 Vider le cache
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <EnTete 
       :utilisateur="utilisateur" 
       :profilClient="profilClient"
@@ -197,6 +362,7 @@ onMounted(async () => {
       @open-panier="panierOuvert = true"
       @deconnexion="executerDeconnexion"
       @open-auth="afficherFormulaireAuth = true" 
+      @open-settings="afficherParametres = true"
     />
 
     <main>
@@ -231,44 +397,55 @@ onMounted(async () => {
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* --- DESIGN SYSTEM TOKENS --- */
-:root {
-  color-scheme: light !important;
-  
-  /* Color Palette */
-  --bg-app: #faf9f6; /* Linge écru premium */
+/* --- SÉLECTION DES THÈMES SUR BODY --- */
+body.theme-ecru {
+  --bg-app: #faf9f6;
   --bg-carte: #ffffff;
-  --text-primary: #1f1b18; /* Marron-noir chaleureux et profond */
-  --text-secondary: #6e645e; /* Bronze éteint */
-  --accent-gold: #c5a47e; /* Or satiné */
+  --text-primary: #1f1b18;
+  --text-secondary: #6e645e;
+  --accent-gold: #c5a47e;
   --accent-gold-light: #f7f3ed;
   --accent-gold-dark: #a6845c;
-  --accent-green: #26463c; /* Vert sapin prestigieux */
+  --accent-green: #26463c;
   --accent-green-light: #eaf1ee;
-  
-  /* Borders & Shadows */
   --border-subtile: rgba(197, 164, 126, 0.22);
-  --border-focus: #c5a47e;
-  --radius-carte: 24px;
-  --radius-input: 16px;
-  
-  --shadow-douce: 0 16px 40px rgba(31, 27, 24, 0.035);
-  --shadow-premium: 0 30px 60px rgba(31, 27, 24, 0.06);
-  --shadow-hover: 0 24px 50px rgba(197, 164, 126, 0.12);
-  
-  /* Standard mappings */
-  --btn-primary: var(--accent-green);
-  --btn-primary-text: #ffffff;
+}
+
+body.theme-sombre {
+  --bg-app: #0e0c0b;
+  --bg-carte: #181513;
+  --text-primary: #f5f2ee;
+  --text-secondary: #b5aaa0;
+  --accent-gold: #d8b88f;
+  --accent-gold-light: #2d2620;
+  --accent-gold-dark: #c5a47e;
+  --accent-green: #3d6e5f;
+  --accent-green-light: #182823;
+  --border-subtile: rgba(216, 184, 143, 0.15);
+}
+
+body.theme-pure-white {
+  --bg-app: #f8fafc;
+  --bg-carte: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --accent-gold: #64748b;
+  --accent-gold-light: #f1f5f9;
+  --accent-gold-dark: #475569;
+  --accent-green: #0f172a;
+  --accent-green-light: #e2e8f0;
+  --border-subtile: rgba(100, 116, 139, 0.15);
 }
 
 html, body, #app, main {
-  background-color: var(--bg-app) !important;
-  color: var(--text-primary) !important;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
   margin: 0;
   padding: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 * {
@@ -303,7 +480,7 @@ main {
 .champ-recherche-premium {
   width: 100%;
   padding: 16px 20px 16px 52px;
-  border-radius: var(--radius-input);
+  border-radius: var(--radius-input, 16px);
   border: 1px solid var(--border-subtile);
   background-color: var(--bg-carte);
   font-family: 'Inter', sans-serif;
@@ -317,7 +494,7 @@ main {
 }
 
 .champ-recherche-premium:focus {
-  border-color: var(--border-focus);
+  border-color: var(--border-focus, var(--accent-gold));
   box-shadow: 0 0 0 4px rgba(197, 164, 126, 0.15), var(--shadow-douce);
 }
 
@@ -357,7 +534,7 @@ main {
 
 .carte-produit, .carte-equipement {
   background: var(--bg-carte);
-  border-radius: var(--radius-carte);
+  border-radius: var(--radius-carte, 24px);
   padding: 20px;
   border: 1px solid var(--border-subtile);
   box-shadow: var(--shadow-douce);
@@ -365,7 +542,7 @@ main {
 }
 .carte-produit:hover, .carte-equipement:hover {
   transform: translateY(-6px);
-  box-shadow: var(--shadow-premium), var(--shadow-hover);
+  box-shadow: var(--shadow-premium, 0 30px 60px rgba(31, 27, 24, 0.06)), var(--shadow-hover, 0 24px 50px rgba(197, 164, 126, 0.12));
   border-color: rgba(197, 164, 126, 0.4);
 }
 
@@ -383,7 +560,7 @@ main {
   color: var(--text-primary);
 }
 
-/* --- MODALE D'AUTHENTIFICATION PREMIUM --- */
+/* --- MODALE PREMIUM --- */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(31, 27, 24, 0.45);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); display: flex; justify-content: center; align-items: center;
@@ -393,7 +570,7 @@ main {
   background: var(--bg-carte); width: 100%; max-width: 440px;
   border-radius: 32px; padding: 40px; position: relative;
   border: 1px solid var(--border-subtile);
-  box-shadow: var(--shadow-premium);
+  box-shadow: var(--shadow-premium, 0 30px 60px rgba(31, 27, 24, 0.06));
 }
 .bouton-fermer-auth {
   position: absolute; top: 24px; right: 24px; background: var(--accent-gold-light);
@@ -411,20 +588,20 @@ main {
 
 .groupe-champ { margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px; }
 .groupe-champ label { display: block; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); }
-.groupe-champ input {
+.groupe-champ input, .groupe-champ select {
   width: 100%; padding: 14px 18px; border: 1px solid var(--border-subtile);
-  border-radius: var(--radius-input); background: #fdfdfd; font-size: 1rem;
+  border-radius: var(--radius-input, 16px); background: var(--bg-carte); font-size: 1rem;
   color: var(--text-primary); font-family: 'Inter', sans-serif;
   transition: all 0.3s; outline: none;
 }
-.groupe-champ input:focus {
-  border-color: var(--border-focus);
-  background: #ffffff;
+.groupe-champ input:focus, .groupe-champ select:focus {
+  border-color: var(--border-focus, var(--accent-gold));
+  background: var(--bg-carte);
   box-shadow: 0 0 0 4px rgba(197, 164, 126, 0.12);
 }
 
 .bouton-valider-auth {
-  width: 100%; padding: 16px; margin-top: 14px; border-radius: var(--radius-input);
+  width: 100%; padding: 16px; margin-top: 14px; border-radius: var(--radius-input, 16px);
   background: var(--accent-green); color: #ffffff; font-weight: 700; border: none; cursor: pointer;
   font-family: 'Inter', sans-serif; font-size: 1rem; letter-spacing: 0.5px;
   box-shadow: 0 8px 24px rgba(38, 70, 60, 0.2);
@@ -454,7 +631,160 @@ main {
 .notification.visible { transform: translateX(-50%) translateY(0); }
 .icone-notif { font-size: 1.1rem; }
 
-/* --- TRANSITIONS SUPPLÉMENTAIRES --- */
+/* --- COMPOSANTS PARAMÈTRES (modal-settings) --- */
+.modal-settings {
+  max-width: 500px !important;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.sections-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.section-settings-bloc {
+  border-bottom: 1px solid var(--border-subtile);
+  padding-bottom: 20px;
+}
+.section-settings-bloc:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.titre-section-settings {
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+.input-desactive {
+  background: rgba(128, 128, 128, 0.08) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--border-subtile) !important;
+  cursor: not-allowed;
+}
+
+/* Sélecteur de Thèmes */
+.selecteur-themes-premium {
+  display: flex;
+  gap: 12px;
+}
+.btn-theme-option {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-theme-option:hover {
+  border-color: var(--accent-gold);
+  background: var(--accent-gold-light);
+}
+.btn-theme-option.actif {
+  border-color: var(--accent-gold-dark);
+  background: var(--accent-gold-light);
+  box-shadow: 0 4px 12px rgba(197, 164, 126, 0.15);
+}
+.cercle-couleur {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* Sélecteur de Langues */
+.selecteur-langues-premium {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.btn-langues-container {
+  display: flex;
+  gap: 12px;
+}
+.btn-langue-option {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-langue-option:hover {
+  border-color: var(--accent-gold);
+  color: var(--text-primary);
+}
+.btn-langue-option.actif {
+  background: var(--accent-green-light);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+/* Stats et Cache */
+.stats-cache-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+}
+.stat-badge-premium {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--accent-gold-light);
+  border: 1px solid var(--border-subtile);
+  padding: 10px 16px;
+  border-radius: 16px;
+}
+.stat-chiffre {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--accent-green);
+  line-height: 1.1;
+}
+.stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+.btn-clear-cache {
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px dashed #c53030;
+  background: transparent;
+  color: #c53030;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-clear-cache:hover {
+  background: #fff5f5;
+  border-style: solid;
+}
+
+/* --- TRANSITIONS --- */
 .fade-page-enter-active,
 .fade-page-leave-active {
   transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
