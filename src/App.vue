@@ -152,40 +152,42 @@ onMounted(async () => {
 <template>
   <div id="app">
     
-    <div v-if="afficherFormulaireAuth && !utilisateur" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
-      <div class="modal-auth">
-        <button class="bouton-fermer-auth" @click="afficherFormulaireAuth = false">✖</button>
-        
-        <h2>{{ estModeInscription ? 'Créer un compte' : 'Bon retour' }}</h2>
-        
-        <div v-if="messageErreur" class="alerte-erreur">⚠️ {{ messageErreur }}</div>
-        
-        <form @submit.prevent="estModeInscription ? executerInscription() : executerConnexion()">
-          <div v-if="estModeInscription" class="groupe-champ">
-            <label>Nom</label>
-            <input type="text" v-model="nomInput" required />
-          </div>
+    <transition name="modal-pop">
+      <div v-if="afficherFormulaireAuth && !utilisateur" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
+        <div class="modal-auth">
+          <button class="bouton-fermer-auth" @click="afficherFormulaireAuth = false">✖</button>
           
-          <div class="groupe-champ">
-            <label>Email</label>
-            <input type="email" v-model="emailInput" required />
-          </div>
+          <h2>{{ estModeInscription ? 'Créer un compte' : 'Bon retour' }}</h2>
           
-          <div class="groupe-champ">
-            <label>Mot de passe</label>
-            <input type="password" v-model="motDePasseInput" required />
-          </div>
+          <div v-if="messageErreur" class="alerte-erreur">⚠️ {{ messageErreur }}</div>
           
-          <button type="submit" class="bouton-valider-auth">
-            {{ estModeInscription ? "S'inscrire" : "Se connecter" }}
-          </button>
-        </form>
-        
-        <p @click="estModeInscription = !estModeInscription" class="lien-bascule">
-          {{ estModeInscription ? 'Déjà un compte ? Connectez-vous' : 'Pas de compte ? Inscrivez-vous' }}
-        </p>
+          <form @submit.prevent="estModeInscription ? executerInscription() : executerConnexion()">
+            <div v-if="estModeInscription" class="groupe-champ">
+              <label>Nom</label>
+              <input type="text" v-model="nomInput" required />
+            </div>
+            
+            <div class="groupe-champ">
+              <label>Email</label>
+              <input type="email" v-model="emailInput" required />
+            </div>
+            
+            <div class="groupe-champ">
+              <label>Mot de passe</label>
+              <input type="password" v-model="motDePasseInput" required />
+            </div>
+            
+            <button type="submit" class="bouton-valider-auth">
+              {{ estModeInscription ? "S'inscrire" : "Se connecter" }}
+            </button>
+          </form>
+          
+          <p @click="estModeInscription = !estModeInscription" class="lien-bascule">
+            {{ estModeInscription ? 'Déjà un compte ? Connectez-vous' : 'Pas de compte ? Inscrivez-vous' }}
+          </p>
+        </div>
       </div>
-    </div>
+    </transition>
 
     <EnTete 
       :utilisateur="utilisateur" 
@@ -196,13 +198,18 @@ onMounted(async () => {
       @open-auth="afficherFormulaireAuth = true" 
     />
 
-   <main>
-      <router-view 
-       :panier="panier" 
-       :utilisateur="utilisateur" 
-       :profilClient="profilClient"
-       @ajouter-au-panier="ajouterAuPanier"
-      />
+    <main>
+      <router-view v-slot="{ Component }">
+        <transition name="fade-page" mode="out-in">
+          <component 
+            :is="Component"
+            :panier="panier" 
+            :utilisateur="utilisateur" 
+            :profilClient="profilClient"
+            @ajouter-au-panier="ajouterAuPanier"
+          />
+        </transition>
+      </router-view>
     </main>
 
     <TiroirPanier 
@@ -337,4 +344,35 @@ main {
   border-radius: 999px; font-weight: 600; z-index: 2000; transition: transform 0.3s ease;
 }
 .notification.visible { transform: translateX(-50%) translateY(0); }
+
+/* --- TRANSITIONS SUPPLÉMENTAIRES --- */
+.fade-page-enter-active,
+.fade-page-leave-active {
+  transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.fade-page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.fade-page-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.modal-pop-enter-active,
+.modal-pop-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-pop-enter-active .modal-auth,
+.modal-pop-leave-active .modal-auth {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-pop-enter-from,
+.modal-pop-leave-to {
+  opacity: 0;
+}
+.modal-pop-enter-from .modal-auth,
+.modal-pop-leave-to .modal-auth {
+  transform: scale(0.95) translateY(10px);
+}
 </style>

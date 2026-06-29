@@ -192,4 +192,22 @@ onMounted(chargerCommandes)
 .groupe-champ label { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: #4a5568; text-transform: uppercase; letter-spacing: 0.5px;}
 .groupe-champ input, .groupe-champ select { width: 100%; padding: 12px; border: 1px solid #d1d9e0; border-radius: 12px; font-size: 1rem; background: #f8fafc; }
 .bouton-valider-auth { width: 100%; padding: 14px; margin-top: 10px; border-radius: 14px; background: #3b302a; color: #ffffff; font-weight: 700; border: none; cursor: pointer; }
+
+/* --- TRANSITIONS MODALE (modal-pop) --- */
+.modal-pop-enter-active,
+.modal-pop-leave-active {
+  transition: opacity 0.3s ease;
+}
+.modal-pop-enter-active .modal-auth,
+.modal-pop-leave-active .modal-auth {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.modal-pop-enter-from,
+.modal-pop-leave-to {
+  opacity: 0;
+}
+.modal-pop-enter-from .modal-auth,
+.modal-pop-leave-to .modal-auth {
+  transform: scale(0.95) translateY(10px);
+}
 </style>
