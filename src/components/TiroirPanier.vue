@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { supabase } from '../utils/supabaseClient'
-import { t } from '../utils/i18n'
+import { t, currentLang } from '../utils/i18n'
 
 const props = defineProps({
   panier: Array,
@@ -104,27 +104,41 @@ const soumettreCommande = async () => {
     return
   }
 
-  // 2. Génération du message WhatsApp
-  let msg = `*${t('brand_title')} - Commande*\n\n`;
-  msg += `*${t('fullname')} :* ${nomClient.value}\n`;
-  msg += `*${t('recovery_mode')} :* ${modeRecup.value === 'Retrait' ? t('pickup_point') : t('delivery_zone')}\n`;
-  if (modeRecup.value === 'Livraison') {
-    msg += `*Zone :* ${zoneLivraison.value}\n`;
-  }
-  msg += `*${t('pickup_date')}* ${dateSouhaitee.value ? formaterDate(dateSouhaitee.value) : '---'}\n\n`;
-  msg += `*${t('articles')} :*\n`;
+  // 2. Génération du message WhatsApp (Mise en page Premium & Emojis)
+  let msg = `━━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `✨ *${t('brand_title')}* ✨\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+  msg += `👤 *${t('your_info').toUpperCase()}*\n`;
+  msg += `▫️ *${t('fullname')} :* ${nomClient.value}\n`;
+
+  const recupLabel = modeRecup.value === 'Retrait' 
+    ? (currentLang.value === 'fr' ? 'Retrait sur place (Gratuit)' : 'Utswala mpahalani (Bure)')
+    : (currentLang.value === 'fr' ? `Livraison - ${zoneLivraison.value}` : `Upelekwa - ${zoneLivraison.value}`);
+    
+  msg += `▫️ *${t('recovery_mode')} :* ${recupLabel}\n`;
+  msg += `▫️ *${t('pickup_date')}* ${dateSouhaitee.value ? formaterDate(dateSouhaitee.value) : '---'}\n\n`;
+
+  msg += `🛒 *${t('articles').toUpperCase()}*\n`;
   props.panier.forEach(item => {
-    msg += `- ${item.quantite}x ${item.titre} (${item.prix} €)\n`;
+    msg += `• ${item.quantite}x ${item.titre} — ${(item.prix * item.quantite).toFixed(2)} €\n`;
     if (item.dateDebut) {
-      msg += `  Période : ${formaterDate(item.dateDebut)} -> ${formaterDate(item.dateFin)}\n`;
+      msg += `  ↳ 📅 ${formaterDate(item.dateDebut)} ➔ ${formaterDate(item.dateFin)} (${item.duree} ${t('days')})\n`;
     }
   });
+  msg += `\n`;
 
+  msg += `💰 *RÉCAPITULATIF*\n`;
+  msg += `▫️ ${t('articles')} : ${totalArticles.value.toFixed(2)} €\n`;
   if (reductionAppliquee.value > 0) {
-    msg += `\n*${t('reduction')} :* -${reductionAppliquee.value}%\n`;
+    msg += `▫️ ${t('reduction')} : -${reductionAppliquee.value}%\n`;
   }
-  msg += `*${t('logistic_fees')} :* ${fraisLogistiques.value} €\n`;
-  msg += `*${t('total_to_pay')} :* ${totalGeneral.value} €\n`;
+  msg += `▫️ ${t('logistic_fees')} : ${fraisLogistiques.value > 0 ? fraisLogistiques.value.toFixed(2) + ' €' : t('free')}\n`;
+  msg += `▶️ *${t('total_to_pay').toUpperCase()} : ${totalGeneral.value.toFixed(2)} €*\n\n`;
+
+  msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  msg += `💬 *${currentLang.value === 'fr' ? 'Merci pour votre confiance !' : 'Marahaba wadjiri !'}*\n`;
+  msg += `━━━━━━━━━━━━━━━━━━━━━`;
 
   emit('commander-whatsapp', { message: msg })
 }
