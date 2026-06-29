@@ -405,27 +405,27 @@ const ajouterArticleVendeur = async () => {
 <style scoped>
 .panneau-admin { padding: 20px 0; }
 .en-tete-admin { display: flex; flex-direction: column; gap: 20px; margin-bottom: 30px; padding: 0 10px; }
-.en-tete-admin h2 { margin: 0; color: #1f2833; font-size: 1.5rem; }
+.en-tete-admin h2 { margin: 0; color: var(--text-primary); font-size: 1.5rem; }
 
-.selecteur-onglets { display: flex; gap: 12px; background: #f4f6f8; padding: 6px; border-radius: 12px; width: fit-content; }
-.selecteur-onglets button { padding: 10px 24px; border: none; background: transparent; border-radius: 8px; font-family: 'Inter', sans-serif; font-weight: 600; color: #6b7b8c; cursor: pointer; transition: all 0.2s; }
-.selecteur-onglets button.actif { background: #ffffff; color: #1a1d20; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.selecteur-onglets { display: flex; gap: 12px; background: var(--accent-gold-light); padding: 6px; border-radius: 12px; width: fit-content; }
+.selecteur-onglets button { padding: 10px 24px; border: none; background: transparent; border-radius: 8px; font-family: 'Inter', sans-serif; font-weight: 600; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.selecteur-onglets button.actif { background: var(--bg-carte); color: var(--text-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
 .barre-actions { margin-bottom: 20px; display: flex; justify-content: flex-end; }
 
-.bouton-ajout-principal { background: #1f2833; color: #fff; padding: 12px 24px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s; }
-.bouton-ajout-principal:hover { background: #3a4b5c; }
+.bouton-ajout-principal { background: var(--accent-green); color: #fff; padding: 12px 24px; border-radius: 12px; border: none; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+.bouton-ajout-principal:hover { background: #1f372f; }
 
-.table-responsive { width: 100%; overflow-x: auto; background: #ffffff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
+.table-responsive { width: 100%; overflow-x: auto; background: var(--bg-carte); border-radius: 16px; border: 1px solid var(--border-subtile); box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
 .table-premium { width: 100%; border-collapse: collapse; text-align: left; font-family: 'Inter', sans-serif; }
-.table-premium th { background: #f8fafc; padding: 16px 20px; font-size: 0.85rem; text-transform: uppercase; color: #6b7b8c; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.table-premium td { padding: 20px; border-bottom: 1px solid rgba(0,0,0,0.03); font-size: 0.95rem; color: #1a1d20; vertical-align: middle; }
+.table-premium th { background: var(--bg-app); padding: 16px 20px; font-size: 0.85rem; text-transform: uppercase; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtile); }
+.table-premium td { padding: 20px; border-bottom: 1px solid var(--border-subtile); font-size: 0.95rem; color: var(--text-primary); vertical-align: middle; }
 .cellule-forte { font-weight: 600; }
-.cellule-prix { font-weight: 800; color: #2b4c40; }
+.cellule-prix { font-weight: 800; color: var(--accent-green); }
 .cellule-actions { display: flex; gap: 8px; }
 
-.btn-icone { background: #f4f6f8; border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-.btn-icone:hover { background: #e2e8f0; }
-.btn-icone.danger:hover { background: #ffebee; }
+.btn-icone { background: var(--accent-gold-light); border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; color: var(--text-primary); transition: 0.2s; }
+.btn-icone:hover { background: var(--border-subtile); }
+.btn-icone.danger:hover { background: #ffebee; color: #c62828; }
 
 /* CSS STRICT DES STATUTS */
 .badge-statut { padding: 6px 12px; border-radius: 99px; font-size: 0.8rem; font-weight: 700; display: inline-block; white-space: nowrap; }
@@ -435,42 +435,44 @@ const ajouterArticleVendeur = async () => {
 .badge-erreur { background: #ffebee; color: #c62828; }        /* Rouge */
 
 .grille-articles-vendeur { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-.carte-vendeur { background: #fff; border: 1px solid #e1e8ed; border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
-.miniature-carte { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; background: #f4f6f8; }
+.carte-vendeur { background: var(--bg-carte); border: 1px solid var(--border-subtile); border-radius: 16px; padding: 16px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+.miniature-carte { width: 60px; height: 60px; border-radius: 10px; object-fit: cover; background: var(--accent-gold-light); }
 .info-carte { flex: 1; }
-.info-carte h4 { margin: 0 0 4px; font-size: 1rem; color: #1f2833; }
-.prix-vendeur { margin: 0; font-weight: 600; color: #b35034; font-size: 0.9rem; }
-.actions-article-vendeur button { background: #f4f6f8; border: none; padding: 10px; border-radius: 8px; cursor: pointer; margin-left: 8px; transition: 0.2s; }
+.info-carte h4 { margin: 0 0 4px; font-size: 1rem; color: var(--text-primary); }
+.prix-vendeur { margin: 0; font-weight: 600; color: var(--accent-gold-dark); font-size: 0.9rem; }
+.actions-article-vendeur button { background: var(--accent-gold-light); border: none; padding: 10px; border-radius: 8px; cursor: pointer; color: var(--text-primary); margin-left: 8px; transition: 0.2s; }
+.actions-article-vendeur button:hover { background: var(--border-subtile); }
 
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 20, 25, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 1000; padding: 20px; }
-.modal-contenu { background: #ffffff; width: 100%; max-width: 650px; max-height: 90vh; border-radius: 24px; overflow-y: auto; box-shadow: 0 24px 60px rgba(0,0,0,0.2); display: flex; flex-direction: column; position: relative; }
-.modal-en-tete { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e1e8ed; position: sticky; top: 0; background: #fff; z-index: 10; }
-.modal-en-tete h3 { margin: 0; font-size: 1.2rem; color: #1f2833; }
-.bouton-fermer-modal { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #6b7b8c; }
+.modal-contenu { background: var(--bg-carte); width: 100%; max-width: 650px; max-height: 90vh; border-radius: 24px; overflow-y: auto; border: 1px solid var(--border-subtile); box-shadow: var(--shadow-premium); display: flex; flex-direction: column; position: relative; }
+.modal-en-tete { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--border-subtile); position: sticky; top: 0; background: var(--bg-carte); z-index: 10; }
+.modal-en-tete h3 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
+.bouton-fermer-modal { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); }
 
 .formulaire-vendeur { padding: 24px; }
 .grille-formulaire { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
 .groupe-champ { display: flex; flex-direction: column; margin-bottom: 12px;}
 .pleine-largeur { grid-column: 1 / -1; margin-bottom: 20px; }
-.formulaire-vendeur label, .groupe-champ label { font-size: 0.85rem; font-weight: 600; color: #4a5568; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-.formulaire-vendeur input[type="text"], .formulaire-vendeur input[type="number"], .formulaire-vendeur select, .formulaire-vendeur textarea, .groupe-champ input { padding: 12px 16px; border: 1px solid #d1d9e0; border-radius: 12px; background: #f8fafc; font-size: 0.95rem; color: #1f2833; transition: all 0.2s; }
+.formulaire-vendeur label, .groupe-champ label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+.formulaire-vendeur input[type="text"], .formulaire-vendeur input[type="number"], .formulaire-vendeur select, .formulaire-vendeur textarea, .groupe-champ input { padding: 12px 16px; border: 1px solid var(--border-subtile); border-radius: 12px; background: var(--bg-app); color: var(--text-primary); transition: all 0.2s; outline: none; }
+.formulaire-vendeur input:focus, .formulaire-vendeur select:focus, .formulaire-vendeur textarea:focus, .groupe-champ input:focus { border-color: var(--accent-gold); }
 .formulaire-vendeur textarea { min-height: 100px; resize: vertical; }
 
 .selection-image { display: flex; gap: 12px; margin-bottom: 12px; }
-.selection-image label { text-transform: none; font-weight: 500; background: #f8fafc; padding: 8px 16px; border-radius: 20px; border: 1px solid #d1d9e0; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.selection-image label { text-transform: none; font-weight: 500; background: var(--bg-app); padding: 8px 16px; border-radius: 20px; border: 1px solid var(--border-subtile); cursor: pointer; display: flex; align-items: center; gap: 8px; }
 .grille-prix-modulable { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.prix-format { background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #d1d9e0; display: flex; flex-direction: column; gap: 8px; }
-.separateur-formulaire { border: none; border-top: 1px solid #e1e8ed; margin: 24px 0; }
+.prix-format { background: var(--bg-app); padding: 12px; border-radius: 12px; border: 1px solid var(--border-subtile); display: flex; flex-direction: column; gap: 8px; }
+.separateur-formulaire { border: none; border-top: 1px solid var(--border-subtile); margin: 24px 0; }
 .zone-upload-image { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 30px; }
 .options-image { flex: 1; }
 .champ-image input { width: 100%; }
-.input-file { padding: 10px; background: #fff; border: 1px dashed #b35034; border-radius: 12px; width: 100%; }
-.apercu-miniature { width: 120px; height: 120px; flex-shrink: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 2px solid #fff; }
+.input-file { padding: 10px; background: var(--bg-carte); border: 1px dashed var(--accent-gold); border-radius: 12px; width: 100%; color: var(--text-primary); }
+.apercu-miniature { width: 120px; height: 120px; flex-shrink: 0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 2px solid var(--border-subtile); }
 .vignette-apercu { width: 100%; height: 100%; object-fit: cover; }
-.actions-formulaire-vendeur { display: flex; justify-content: flex-end; gap: 16px; padding-top: 20px; border-top: 1px solid #e1e8ed; }
+.actions-formulaire-vendeur { display: flex; justify-content: flex-end; gap: 16px; padding-top: 20px; border-top: 1px solid var(--border-subtile); }
 .bouton-annuler-edition, .bouton-valider-ajout { padding: 14px 24px; border-radius: 12px; font-weight: 600; cursor: pointer; border: none; }
-.bouton-annuler-edition { background: #f1f5f9; color: #475569; }
-.bouton-valider-ajout { background: #b35034; color: #fff; }
+.bouton-annuler-edition { background: var(--accent-gold-light); color: var(--text-primary); }
+.bouton-valider-ajout { background: var(--accent-green); color: #fff; }
 
 @media (max-width: 600px) { .grille-formulaire, .grille-prix-modulable { grid-template-columns: 1fr; } .zone-upload-image { flex-direction: column; } .apercu-miniature { width: 100%; height: 200px; } }
 </style>
