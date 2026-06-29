@@ -1,272 +1,316 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { supabase } from '../utils/supabaseClient'
+import { ref, computed } from 'vue';
+import { t } from '../utils/i18n';
 
-const props = defineProps({
-  equipement: Object
-})
+const props = defineProps(['equipement']);
+const emit = defineEmits(['ajouter-equipement']);
 
-const emit = defineEmits(['ajouter-equipement'])
+const dateDebut = ref('');
+const dateFin = ref('');
 
-const dateDebut = ref('')
-const dateFin = ref('')
-const datesIndisponibles = ref([])
-const erreurDisponibilite = ref('')
+const datesInvalides = computed(() => {
+  if (!dateDebut.value || !dateFin.value) return false;
+  return new Date(dateFin.value) <= new Date(dateDebut.value);
+});
 
-// Génération de l'horodatage actuel (format YYYY-MM-DD) pour bloquer les dates passées
-const dateAujourdhui = new Date().toISOString().split('T')[0]
-
-// Phase d'hydratation : Récupération des conflits potentiels
-const chargerReservations = async () => {
-  const { data, error } = await supabase
-    .from('reservations_equipements')
-    .select('date_debut, date_fin')
-    .eq('equipement_id', props.equipement.id)
-    
-  if (!error && data) {
-    datesIndisponibles.value = data
-  }
-}
-
-onMounted(() => {
-  chargerReservations()
-})
-
-// Algorithme d'intersection spatio-temporelle
-const verifierChevauchement = () => {
-  erreurDisponibilite.value = '';
-  if (!dateDebut.value || !dateFin.value) return;
-
-  const debut = new Date(dateDebut.value);
-  const fin = new Date(dateFin.value);
-
-  // Vérification de la cohérence chronologique
-  if (fin < debut) {
-    erreurDisponibilite.value = "La date de fin doit succéder à la date de début.";
-    return;
-  }
-
-  // Évaluation des vecteurs de réservation
-  for (const res of datesIndisponibles.value) {
-    const resDebut = new Date(res.date_debut);
-    const resFin = new Date(res.date_fin);
-    
-    // Si l'intervalle sélectionné croise un intervalle existant (StartA <= EndB && EndA >= StartB)
-    if (debut <= resFin && fin >= resDebut) {
-      erreurDisponibilite.value = "Cet équipement est déjà réservé sur la période sélectionnée.";
-      return;
-    }
-  }
-}
-
-// Déclencheur réactif pour l'évaluation temporelle
-watch([dateDebut, dateFin], verifierChevauchement);
-
-const dureeLocation = computed(() => {
-  if (!dateDebut.value || !dateFin.value || erreurDisponibilite.value !== '') return 0
-  const debut = new Date(dateDebut.value)
-  const fin = new Date(dateFin.value)
-  const diffTemps = fin.getTime() - debut.getTime()
-  const diffJours = Math.ceil(diffTemps / (1000 * 3600 * 24))
-  return diffJours > 0 ? diffJours : 0
-})
+const dureeJours = computed(() => {
+  if (!dateDebut.value || !dateFin.value || datesInvalides.value) return 0;
+  const diffTime = Math.abs(new Date(dateFin.value) - new Date(dateDebut.value));
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+});
 
 const prixTotal = computed(() => {
-  return dureeLocation.value * props.equipement.prix_journalier
-})
+  return dureeJours.value * props.equipement.prix_journalier;
+});
 
-const reserverEquipement = () => {
-  if (dureeLocation.value <= 0 || erreurDisponibilite.value !== '') return
+const estDejaReserve = computed(() => {
+  if (!dateDebut.value || !dateFin.value || datesInvalides.value) return false;
+  const debut = new Date(dateDebut.value);
+  const fin = new Date(dateFin.value);
   
-  emit('ajouter-equipement', {
-    ...props.equipement,
-    dateDebutSelectionnee: dateDebut.value,
-    dateFinSelectionnee: dateFin.value,
-    dureeJours: dureeLocation.value,
-    prixTotalLocation: prixTotal.value
-  })
-}
+  return props.equipement.dates_indisponibles.some(dateStr => {
+    const d = new Date(dateStr);
+    return d >= debut && d <= fin;
+  });
+});
+
+const ajouterSiValide = () => {
+  if (dureeJours.value > 0 && !estDejaReserve.value) {
+    emit('ajouter-equipement', {
+      ...props.equipement,
+      dateDebutSelectionnee: dateDebut.value,
+      dateFinSelectionnee: dateFin.value,
+      dureeJours: dureeJours.value,
+      prixTotalLocation: prixTotal.value
+    });
+  }
+};
 </script>
 
 <template>
-  <article class="carte-premium">
-    <div class="conteneur-image">
-      <img :src="equipement.image_url" :alt="equipement.titre" class="image-produit" loading="lazy" />
-      <span class="badge-tag">Location</span>
+  <div class="carte-equipement">
+    <div class="badge-type-location">{{ t('rental_badge') }}</div>
+    <div class="image-wrapper">
+      <img :src="props.equipement.image_url" :alt="props.equipement.titre" class="image-equipement" />
     </div>
+    <h3>{{ props.equipement.titre }}</h3>
+    <p class="description">{{ props.equipement.description }}</p>
     
-    <div class="contenu-carte">
-      <h3 class="titre-produit">{{ equipement.titre }}</h3>
-      <p class="description-produit">{{ equipement.description }}</p>
-      
-      <div class="selecteur-dates-premium">
-        <div class="champ-date">
-          <label>Début</label>
-          <input type="date" v-model="dateDebut" :min="dateAujourdhui" class="input-date" />
-        </div>
-        <div class="diviseur-dates">→</div>
-        <div class="champ-date">
-          <label>Fin</label>
-          <input type="date" v-model="dateFin" :min="dateDebut || dateAujourdhui" class="input-date" />
-        </div>
-      </div>
-      
-      <p v-if="erreurDisponibilite" class="alerte-disponibilite">⚠️ {{ erreurDisponibilite }}</p>
+    <div class="details-specifications">
+      <ul>
+        <li v-for="spec in props.equipement.specifications_techniques" :key="spec">{{ spec }}</li>
+      </ul>
+    </div>
 
-      <div class="pied-carte">
-        <div class="info-prix">
-          <span class="label-prix">Total location</span>
-          <div class="recap-prix">
-            <span class="prix-affiche">{{ prixTotal > 0 ? prixTotal : equipement.prix_journalier }} €</span>
-            <span class="prix-detail">{{ prixTotal > 0 ? `${dureeLocation} jour(s)` : '/ jour' }}</span>
-          </div>
-        </div>
-        
-        <button 
-          class="bouton-ajouter-premium" 
-          :class="{ 'bouton-desactive': dureeLocation <= 0 || erreurDisponibilite !== '' }"
-          @click="reserverEquipement" 
-          :disabled="dureeLocation <= 0 || erreurDisponibilite !== ''"
-          aria-label="Réserver cet équipement"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="16" y1="2" x2="16" y2="6"></line>
-            <line x1="8" y1="2" x2="8" y2="6"></line>
-            <line x1="3" y1="10" x2="21" y2="10"></line>
-          </svg>
-        </button>
+    <!-- Section Réservation Spécifique location -->
+    <div class="selecteur-dates-container">
+      <div class="champ-date">
+        <label>{{ t('date_start') }}</label>
+        <input type="date" v-model="dateDebut" class="input-date-premium" />
+      </div>
+      <div class="champ-date">
+        <label>{{ t('date_end') }}</label>
+        <input type="date" v-model="dateFin" class="input-date-premium" />
       </div>
     </div>
-  </article>
+
+    <div v-if="datesInvalides" class="alerte-erreur-date">
+      ⚠️ {{ t('err_chronology') }}
+    </div>
+
+    <div v-if="estDejaReserve" class="alerte-erreur-date">
+      ⚠️ {{ t('err_reserved') }}
+    </div>
+
+    <div class="bas-carte">
+      <div class="conteneur-prix">
+        <span class="label-prix">
+          {{ dureeJours > 0 ? t('total_rental') : t('price_label') }}
+        </span>
+        <span class="valeur-prix">
+          {{ dureeJours > 0 ? prixTotal : props.equipement.prix_journalier }} €
+          <span class="suffixe-jour" v-if="dureeJours === 0">{{ t('per_day') }}</span>
+          <span class="suffixe-jour" v-else>({{ dureeJours }} {{ t('days') }})</span>
+        </span>
+      </div>
+      <button 
+        @click="ajouterSiValide" 
+        class="bouton-ajouter" 
+        :disabled="dureeJours === 0 || estDejaReserve || datesInvalides"
+      >
+        {{ t('add_to_cart') }}
+      </button>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.carte-premium {
+.carte-equipement {
+  background: var(--bg-carte);
+  border-radius: var(--radius-carte, 24px);
+  padding: 24px;
+  border: 1px solid var(--border-subtile);
+  box-shadow: var(--shadow-douce);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background-color: var(--bg-carte);
-  border: 1px solid var(--border-subtile);
-  border-radius: var(--radius-carte);
+  position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-douce);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.carte-premium:hover {
+.carte-equipement:hover {
   transform: translateY(-6px);
-  box-shadow: var(--shadow-premium), var(--shadow-hover);
+  box-shadow: var(--shadow-premium, 0 30px 60px rgba(31, 27, 24, 0.06)), var(--shadow-hover, 0 24px 50px rgba(197, 164, 126, 0.12));
   border-color: rgba(197, 164, 126, 0.4);
 }
 
-.conteneur-image { width: 100%; aspect-ratio: 4 / 3; overflow: hidden; position: relative; background-color: #f7f6f2; }
-.image-produit { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-.carte-premium:hover .image-produit {
-  transform: scale(1.05);
-}
-
-.badge-tag {
+/* Badge Location */
+.badge-type-location {
   position: absolute;
   top: 16px;
   left: 16px;
-  background-color: rgba(255, 255, 255, 0.9);
+  z-index: 10;
+  background: rgba(197, 164, 126, 0.9);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  padding: 6px 12px;
-  border-radius: 20px;
+  color: #1f1b18;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-family: 'Inter', sans-serif;
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--accent-gold-dark);
-  border: 1px solid rgba(197, 164, 126, 0.15);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
 }
 
-.contenu-carte { padding: 24px; display: flex; flex-direction: column; flex-grow: 1; }
-.titre-produit { font-family: 'Playfair Display', serif; font-size: 1.35rem; font-weight: 700; margin: 0 0 10px 0; color: var(--text-primary); line-height: 1.3; }
-.description-produit { font-family: 'Inter', sans-serif; font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 20px 0; line-height: 1.6; flex-grow: 1; }
+/* Conteneur d'image & Effet Zoom */
+.image-wrapper {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
 
-.selecteur-dates-premium {
+.image-equipement {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.carte-equipement:hover .image-equipement {
+  transform: scale(1.08);
+}
+
+.carte-equipement h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  color: var(--text-primary);
+}
+
+.description {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+  line-height: 1.6;
+}
+
+.details-specifications {
+  margin-bottom: 20px;
+}
+.details-specifications ul {
+  padding-left: 20px;
+  margin: 0;
+  list-style-type: square;
+}
+.details-specifications li {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+/* Sélecteur de Dates de prestige */
+.selecteur-dates-container {
   display: flex;
-  align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
-  background-color: var(--accent-gold-light);
-  padding: 12px 16px;
+  margin-bottom: 18px;
+  background: var(--accent-gold-light);
+  padding: 14px;
   border-radius: 16px;
   border: 1px solid var(--border-subtile);
 }
 
-.champ-date { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.champ-date label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.5px; }
-.input-date { background: transparent; border: none; padding: 0; font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); width: 100%; outline: none; cursor: pointer; }
-.diviseur-dates { font-size: 1.1rem; color: var(--accent-gold); font-weight: 700; }
-
-.alerte-disponibilite {
-  font-family: 'Inter', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #c53030;
-  background-color: #fff5f5;
-  padding: 10px 14px;
-  border-radius: 10px;
-  margin: 0 0 16px 0;
-  border: 1px solid #fed7d7;
+.champ-date {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.pied-carte { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 18px; border-top: 1px solid var(--border-subtile); }
-.info-prix { display: flex; flex-direction: column; gap: 2px; }
-.label-prix {
-  font-size: 0.7rem;
+.champ-date label {
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
 }
-.recap-prix { display: flex; align-items: baseline; gap: 6px; }
-.prix-affiche { font-family: 'Inter', sans-serif; font-size: 1.35rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
-.prix-detail { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; }
 
-.bouton-ajouter-premium { 
-  width: 46px; 
-  height: 46px; 
-  border-radius: 14px; 
-  background-color: var(--btn-primary); 
-  color: var(--btn-primary-text); 
-  border: none; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  cursor: pointer; 
-  box-shadow: 0 6px 16px rgba(38, 70, 60, 0.2);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
-}
-.bouton-ajouter-premium svg { width: 20px; height: 20px; }
-.bouton-ajouter-premium:hover { 
-  background-color: #1e362e;
-  transform: scale(1.08) translateY(-2px); 
-  box-shadow: 0 8px 20px rgba(38, 70, 60, 0.3);
-}
-.bouton-ajouter-premium:active { transform: scale(0.95); }
-
-.bouton-desactive { 
-  background-color: #f1efeb; 
-  color: #a09790; 
-  cursor: not-allowed; 
-  box-shadow: none;
+.input-date-premium {
   border: 1px solid var(--border-subtile);
+  border-radius: 8px;
+  padding: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  background: var(--bg-carte);
+  color: var(--text-primary);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
 }
-.bouton-desactive:hover {
-  background-color: #f1efeb;
-  transform: none;
+
+.input-date-premium:focus {
+  border-color: var(--accent-gold);
+}
+
+/* Alertes Erreurs */
+.alerte-erreur-date {
+  background: #fff5f5;
+  color: #c53030;
+  border: 1px solid #fed7d7;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* Section Bas de Carte */
+.bas-carte {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-subtile);
+  padding-top: 18px;
+  margin-top: auto;
+}
+
+.conteneur-prix {
+  display: flex;
+  flex-direction: column;
+}
+
+.label-prix {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+}
+
+.valeur-prix {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--accent-green);
+}
+
+.suffixe-jour {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.bouton-ajouter {
+  background: var(--accent-green);
+  color: #ffffff;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(38, 70, 60, 0.15);
+}
+
+.bouton-ajouter:hover:not(:disabled) {
+  background: #1e362e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(38, 70, 60, 0.25);
+}
+
+.bouton-ajouter:disabled {
+  background: #d1d9e0;
+  color: #868e96;
+  cursor: not-allowed;
   box-shadow: none;
 }
-.bouton-desactive:active { transform: none; }
 
-@media (max-width: 768px) {
-  .conteneur-image { margin: 12px 12px 0 12px; width: calc(100% - 24px); border-radius: 16px; }
-  .contenu-carte { padding: 18px; }
+.bouton-ajouter:active:not(:disabled) {
+  transform: translateY(0);
 }
 </style>

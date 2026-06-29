@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { supabase } from '../utils/supabaseClient';
 import CarteProduit from '../components/CarteProduit.vue';
 import CarteEquipement from '../components/CarteEquipement.vue';
+import { t } from '../utils/i18n';
 
 const props = defineProps(['panier']);
 const emit = defineEmits(['ajouter-au-panier']);
@@ -29,9 +30,9 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
   <div class="contenu-home"> 
     <section class="recherche-premium">
       <div class="header-intro">
-        <span class="tagline">Traiteur de Prestige &amp; Location d'Équipements</span>
-        <h2 class="titre-recherche">L'Art de Recevoir sur Mesure</h2>
-        <p class="description-recherche">Découvrez nos créations culinaires raffinées et notre matériel haut de gamme pour vos événements à Mayotte.</p>
+        <span class="tagline">{{ t('tagline') }}</span>
+        <h2 class="titre-recherche">{{ t('hero_title') }}</h2>
+        <p class="description-recherche">{{ t('hero_desc') }}</p>
       </div>
       
       <div class="barre-recherche-container">
@@ -42,23 +43,23 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
         <input 
           type="text" 
           class="champ-recherche-premium" 
-          placeholder="Rechercher une saveur, un équipement..." 
+          :placeholder="t('search_placeholder')" 
           v-model="recherche" 
         />
       </div>
 
       <div class="filtres-scrollables">
-        <button class="chip-premium" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">Toutes nos offres</button>
-        <button class="chip-premium" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">Gastronomie Fine</button>
-        <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">Matériel de Réception</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">{{ t('filter_all') }}</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">{{ t('filter_gastronomy') }}</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">{{ t('filter_rental') }}</button>
       </div>
     </section>
 
     <!-- SECTION GASTRONOMIE -->
     <section v-if="produitsFiltrés.length > 0" class="section-catalogue">
       <div class="section-header">
-        <h2 class="titre-section">Créations Gastronomiques</h2>
-        <p class="soustitre-section">Saveurs locales authentiques &amp; dressage d'exception</p>
+        <h2 class="titre-section">{{ t('sec_gastronomy') }}</h2>
+        <p class="soustitre-section">{{ t('sec_gastronomy_sub') }}</p>
       </div>
       
       <div class="grille-produits">
@@ -74,8 +75,8 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
     <!-- SECTION LOCATION -->
     <section v-if="equipementsFiltrés.length > 0" class="section-catalogue">
       <div class="section-header">
-        <h2 class="titre-section">Matériel en Location</h2>
-        <p class="soustitre-section">Équipez vos événements avec notre matériel professionnel sélectionné</p>
+        <h2 class="titre-section">{{ t('sec_rental') }}</h2>
+        <p class="soustitre-section">{{ t('sec_rental_sub') }}</p>
       </div>
       
       <div class="grille-equipements">

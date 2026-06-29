@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue';
 import { supabase } from './utils/supabaseClient';
 import EnTete from './components/EnTete.vue';
 import TiroirPanier from './components/TiroirPanier.vue';
+import { currentLang, setLang, t } from './utils/i18n';
 
 // --- ÉTATS GLOBAUX ---
 const utilisateur = ref(null);
@@ -15,7 +16,7 @@ const notification = ref({ active: false, message: '' });
 const afficherParametres = ref(false);
 const themeActuel = ref(localStorage.getItem('app-theme') || 'theme-ecru');
 const nomProfilInput = ref('');
-const langueChoisie = ref(localStorage.getItem('app-lang') || 'fr');
+const langueChoisie = ref(currentLang.value);
 const statsNombreCommandes = ref(0);
 
 // --- ÉTATS AUTHENTIFICATION ---
@@ -66,7 +67,7 @@ const ajouterAuPanier = (article, estProduit = false) => {
   duree: estProduit ? null : article.dureeJours 
   });
   }
-  afficherNotification(`✅ ${titreComplet} ajouté au panier`);
+  afficherNotification(`✅ ${titreComplet} ${t('add_to_cart')}`);
 };
 
 const executerCommandeWhatsApp = (payload) => {
@@ -137,9 +138,13 @@ const changerTheme = (nouveauTheme) => {
 };
 
 const changerLangue = (nouvelleLangue) => {
+  setLang(nouvelleLangue);
   langueChoisie.value = nouvelleLangue;
-  localStorage.setItem('app-lang', nouvelleLangue);
-  afficherNotification(`Langue modifiée avec succès : ${nouvelleLangue === 'fr' ? 'Français' : 'Shimaore'}`);
+  let nomLangue = '';
+  if (nouvelleLangue === 'fr') nomLangue = 'Français';
+  else if (nouvelleLangue === 'sh_officiel') nomLangue = 'Shimaore (Officiel)';
+  else if (nouvelleLangue === 'sh_fr') nomLangue = 'Shimaore (Alphabet Fr)';
+  afficherNotification(`🌍 Langue modifiée : ${nomLangue}`);
 };
 
 const reinitialiserApp = () => {
@@ -262,14 +267,14 @@ onMounted(async () => {
         <div class="modal-auth modal-settings">
           <button class="bouton-fermer-auth" @click="afficherParametres = false" aria-label="Fermer">✖</button>
           
-          <h2 class="titre-modal">Paramètres</h2>
-          <p class="soustitre-modal">Personnalisez votre espace local</p>
+          <h2 class="titre-modal">{{ t('settings_title') }}</h2>
+          <p class="soustitre-modal">{{ t('settings_subtitle') }}</p>
 
           <div class="sections-settings">
             
             <!-- Choix du Thème -->
             <div class="section-settings-bloc">
-              <h3 class="titre-section-settings">🎨 Thème visuel</h3>
+              <h3 class="titre-section-settings">🎨 {{ t('visual_theme') }}</h3>
               <div class="selecteur-themes-premium">
                 <button 
                   class="btn-theme-option ecru"
@@ -300,25 +305,25 @@ onMounted(async () => {
 
             <!-- Infos Profil -->
             <div v-if="utilisateur" class="section-settings-bloc">
-              <h3 class="titre-section-settings">👤 Mon profil</h3>
+              <h3 class="titre-section-settings">👤 {{ t('my_profile') }}</h3>
               <form @submit.prevent="modifierProfil">
                 <div class="groupe-champ">
                   <label>Adresse Email (Non modifiable)</label>
                   <input type="email" :value="utilisateur.email" disabled class="input-desactive" />
                 </div>
                 <div class="groupe-champ">
-                  <label>Nom complet</label>
+                  <label>{{ t('fullname') }}</label>
                   <input type="text" v-model="nomProfilInput" required />
                 </div>
                 <button type="submit" class="bouton-valider-auth" style="margin-top: 8px;">
-                  Enregistrer les modifications
+                  {{ t('save_changes') }}
                 </button>
               </form>
             </div>
 
             <!-- Langues d'affichage -->
             <div class="section-settings-bloc">
-              <h3 class="titre-section-settings">🌍 Langue d'affichage</h3>
+              <h3 class="titre-section-settings">🌍 {{ t('lang_label') }}</h3>
               <div class="selecteur-langues-premium">
                 <div class="btn-langues-container">
                   <button 
@@ -330,10 +335,19 @@ onMounted(async () => {
                   </button>
                   <button 
                     class="btn-langue-option"
-                    :class="{ actif: langueChoisie === 'sh' }"
-                    @click="changerLangue('sh')"
+                    :class="{ actif: langueChoisie === 'sh_officiel' }"
+                    @click="changerLangue('sh_officiel')"
+                    title="Dialecte de Mayotte avec alphabet officiel (ɓ, ɗ)"
                   >
-                    Shimaore (Mayotte)
+                    Shimaore (Officiel)
+                  </button>
+                  <button 
+                    class="btn-langue-option"
+                    :class="{ actif: langueChoisie === 'sh_fr' }"
+                    @click="changerLangue('sh_fr')"
+                    title="Dialecte de Mayotte avec alphabet français (b, d)"
+                  >
+                    Shimaore (Fr)
                   </button>
                 </div>
               </div>
@@ -346,7 +360,7 @@ onMounted(async () => {
                 <span class="stat-label">Commandes</span>
               </div>
               <button class="btn-clear-cache" @click="reinitialiserApp">
-                🧹 Vider le cache
+                🧹 {{ t('clear_cache') }}
               </button>
             </div>
 

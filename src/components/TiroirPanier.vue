@@ -1,575 +1,678 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { supabase } from '../utils/supabaseClient'
+import { t } from '../utils/i18n'
 
 const props = defineProps({
   panier: Array,
-  panierOuvert: Boolean,
-  utilisateur: Object
+  panierOuvert: Boolean
 })
 
 const emit = defineEmits(['close-panier', 'update-panier', 'commander-whatsapp'])
 
-const modeLivraison = ref('retrait')
-const lieuRetrait = ref('labattoir') 
-const lieuLivraison = ref('domicile_pt') 
+const codePromo = ref('')
+const reductionAppliquee = ref(0)
+const codePromoErreur = ref('')
+const codePromoSucces = ref(false)
+
+const modeRecup = ref('Retrait')
+const zoneLivraison = ref('Petite-Terre')
 
 const nomClient = ref('')
-const dateCommande = ref('')
+const dateSouhaitee = ref('')
 
-// --- GESTION PROMO ---
-const codePromoInput = ref('')
-const codeApplique = ref(null)
-
-const fraisLogistique = computed(() => {
-  if (modeLivraison.value === 'livraison') {
-    return lieuLivraison.value === 'mamoudzou' ? 3 : 2
-  }
-  return 0 
-})
+const formaterDate = (d) => new Date(d).toLocaleDateString('fr-FR')
 
 const totalArticles = computed(() => {
-  return props.panier.reduce((total, item) => total + (item.prix * item.quantite), 0)
+  return props.panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0)
 })
 
-const calculerReduction = computed(() => {
-  if (!codeApplique.value) return 0
-  if (codeApplique.value.type_reduction === 'pourcentage') {
-    return totalArticles.value * (codeApplique.value.valeur / 100)
+const fraisLogistiques = computed(() => {
+  if (modeRecup.value === 'Retrait') return 0
+  return zoneLivraison.value === 'Petite-Terre' ? 2 : 3
+})
+
+const totalGeneral = computed(() => {
+  const reduction = totalArticles.value * (reductionAppliquee.value / 100)
+  return Math.max(0, totalArticles.value - reduction + fraisLogistiques.value)
+})
+
+const modifierQuantite = (item, delta) => {
+  const index = props.panier.findIndex(x => x.idUnique === item.idUnique)
+  if (index !== -1) {
+    const pCopy = [...props.panier]
+    pCopy[index].quantite += delta
+    if (pCopy[index].quantite <= 0) {
+      pCopy.splice(index, 1)
+    }
+    emit('update-panier', pCopy)
   }
-  return codeApplique.value.valeur
-})
-
-const totalGénéral = computed(() => {
-  return totalArticles.value - calculerReduction.value + fraisLogistique.value
-})
+}
 
 const verifierCodePromo = async () => {
+  codePromoErreur.value = ''
+  codePromoSucces.value = false
+  reductionAppliquee.value = 0
+
   const { data, error } = await supabase
     .from('codes_promotionnels')
     .select('*')
-    .eq('code', codePromoInput.value.toUpperCase())
-    .eq('est_actif', true)
+    .eq('code', codePromo.value.trim().toUpperCase())
     .single()
-    
+
   if (error || !data) {
-    alert("Code invalide ou expiré.")
-    codeApplique.value = null
+    codePromoErreur.value = 'Code invalide ou expiré'
   } else {
-    codeApplique.value = data
-    alert(`Code appliqué ! -${data.valeur} ${data.type_reduction === 'pourcentage' ? '%' : '€'}`)
+    reductionAppliquee.value = data.valeur
+    codePromoSucces.value = true
   }
 }
 
-const modifierQuantite = (idUnique, changement) => {
-  const index = props.panier.findIndex(item => item.idUnique === idUnique)
-  if (index !== -1) {
-    const nouveauPanier = [...props.panier]
-    const nouvelleQuantite = nouveauPanier[index].quantite + changement
-    
-    if (nouvelleQuantite <= 0) {
-      nouveauPanier.splice(index, 1)
-    } else {
-      nouveauPanier[index] = { ...nouveauPanier[index], quantite: nouvelleQuantite }
-    }
-    
-    emit('update-panier', nouveauPanier)
-    if (nouveauPanier.length === 0) emit('close-panier')
-  }
-}
-
-const commanderSurWhatsApp = async () => {
-  if (!nomClient.value || !dateCommande.value) {
-    alert("Merci d'indiquer votre nom et la date souhaitée.")
+const soumettreCommande = async () => {
+  if (!nomClient.value || !dateSouhaitee.value) {
+    alert("Veuillez renseigner votre nom et la date souhaitée.")
     return
   }
 
-  let message = `*NOUVELLE COMMANDE*\n`
-  message += `Client : ${nomClient.value}\n`
-  message += `Date : ${dateCommande.value}\n`
-  
-  let modeRecupTexte = ""
-  if (modeLivraison.value === 'livraison') {
-    modeRecupTexte = lieuLivraison.value === 'mamoudzou' 
-      ? 'Livraison : Pied de la barge (Mamoudzou)' 
-      : 'Livraison : À domicile (Petite-Terre)'
-  } else {
-    modeRecupTexte = lieuRetrait.value === 'labattoir' 
-      ? 'Click & Collect : 16A Rue Du Stade, Labattoir' 
-      : 'Click & Collect : Pied de la barge (Dzaoudzi)'
-  }
-  message += `Type : ${modeRecupTexte}\n`
-  message += `--------------------------\n`
-  
-  props.panier.forEach(item => {
-    message += `- ${item.quantite}x ${item.titre} - ${item.prix * item.quantite} €\n`
-    if (item.typeElement === 'location') {
-      message += `  📅 Du ${item.dateDebut} au ${item.dateFin}\n`
-      message += `  ⏳ Durée : ${item.duree} jour(s)\n`
-    }
-  })
-  
-  if (codeApplique.value) {
-    message += `Code promo : ${codeApplique.value.code} (-${calculerReduction.value} €)\n`
-  }
-  
-  message += `--------------------------\n`
-  message += `Sous-total : ${totalArticles.value} €\n`
-  message += `Frais logistique : ${fraisLogistique.value} €\n`
-  message += `*TOTAL À PAYER : ${totalGénéral.value} €*`
-
-  const chargeUtileCommande = {
-    client_id: props.utilisateur ? props.utilisateur.id : null,
+  // 1. Sauvegarde en base de données via Supabase
+  const payloadDb = {
     nom_client: nomClient.value,
-    details_panier: props.panier,
-    mode_recuperation: modeRecupTexte,
-    frais_logistique: fraisLogistique.value,
-    total_general: totalGénéral.value,
-    date_commande: dateCommande.value,
-    statut: 'En attente'
+    mode_recuperation: modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`,
+    total_general: totalGeneral.value,
+    statut: 'En attente',
+    details_panier: props.panier.map(item => ({
+      titre: item.titre,
+      quantite: item.quantite,
+      prix: item.prix,
+      dateDebut: item.dateDebut,
+      dateFin: item.dateFin
+    }))
   }
 
-  try {
-    const { error } = await supabase.from('commandes').insert([chargeUtileCommande])
-    if (error) throw error
-    emit('commander-whatsapp', { message, nomClient: nomClient.value, dateCommande: dateCommande.value })
-  } catch (erreur) {
-    console.error("Erreur d'enregistrement :", erreur.message)
-    alert("Une erreur de connexion a empêché l'enregistrement.")
+  const { data, error } = await supabase
+    .from('commandes')
+    .insert([payloadDb])
+    .select()
+
+  if (error) {
+    console.error("Erreur de sauvegarde de la commande :", error.message)
+    alert("Erreur lors de la validation de la commande.")
+    return
   }
+
+  // 2. Génération du message WhatsApp
+  let msg = `*${t('brand_title')} - Commande*\n\n`;
+  msg += `*${t('fullname')} :* ${nomClient.value}\n`;
+  msg += `*${t('recovery_mode')} :* ${modeRecup.value === 'Retrait' ? t('pickup_point') : t('delivery_zone')}\n`;
+  if (modeRecup.value === 'Livraison') {
+    msg += `*Zone :* ${zoneLivraison.value}\n`;
+  }
+  msg += `*${t('pickup_date')}* ${dateSouhaitee.value ? formaterDate(dateSouhaitee.value) : '---'}\n\n`;
+  msg += `*${t('articles')} :*\n`;
+  props.panier.forEach(item => {
+    msg += `- ${item.quantite}x ${item.titre} (${item.prix} €)\n`;
+    if (item.dateDebut) {
+      msg += `  Période : ${formaterDate(item.dateDebut)} -> ${formaterDate(item.dateFin)}\n`;
+    }
+  });
+
+  if (reductionAppliquee.value > 0) {
+    msg += `\n*${t('reduction')} :* -${reductionAppliquee.value}%\n`;
+  }
+  msg += `*${t('logistic_fees')} :* ${fraisLogistiques.value} €\n`;
+  msg += `*${t('total_to_pay')} :* ${totalGeneral.value} €\n`;
+
+  emit('commander-whatsapp', { message: msg })
 }
 </script>
 
 <template>
-  <transition name="slide-drawer">
-    <div v-if="panierOuvert" class="panier-overlay" @click.self="$emit('close-panier')">
-      <div class="panier-tiroir">
-        
-        <div class="en-tete-tiroir">
-          <h2>Votre Panier</h2>
-          <button class="bouton-fermer" @click="$emit('close-panier')" aria-label="Fermer le panier">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+  <div class="tiroir-panier-wrapper">
+    <transition name="fade-overlay">
+      <div v-if="panierOuvert" class="calque-panier" @click="emit('close-panier')"></div>
+    </transition>
+
+    <transition name="slide-drawer">
+      <div v-if="panierOuvert" class="contenu-tiroir">
+        <div class="en-tete-panier">
+          <h2>{{ t('your_cart') }}</h2>
+          <button @click="emit('close-panier')" class="bouton-fermer-tiroir" aria-label="Fermer">✖</button>
         </div>
 
-        <div v-if="panier.length === 0" class="panier-vide">
-          <span class="emoji-vide">🧺</span>
-          <p>Votre panier est actuellement vide.</p>
+        <div v-if="props.panier.length === 0" class="panier-vide">
+          <span class="icone-panier-vide">🧺</span>
+          <p>{{ t('cart_empty') }}</p>
         </div>
 
-        <div v-else class="contenu-panier">
-          
-          <div class="liste-articles">
-            <div v-for="item in panier" :key="item.idUnique" class="article-item">
-              <div class="infos-article">
-                <h4 class="titre-item">{{ item.titre }}</h4>
-                
-                <div v-if="item.typeElement === 'location'" class="details-location">
-                  📅 Du {{ item.dateDebut }} au {{ item.dateFin }}<br>
-                  ⏳ Durée : {{ item.duree }} jour(s)
-                </div>
-                
-                <p class="prix-unitaire">{{ item.prix }} € / unité</p>
+        <div v-else class="panier-rempli-scroll">
+          <ul class="liste-panier">
+            <li v-for="item in props.panier" :key="item.idUnique" class="item-panier">
+              <div class="details-item">
+                <span class="titre-item">{{ item.titre }}</span>
+                <span v-if="item.dateDebut" class="dates-item">
+                  📅 {{ formaterDate(item.dateDebut) }} ➔ {{ formaterDate(item.dateFin) }}
+                </span>
+                <span class="prix-item">{{ item.prix }} € x {{ item.quantite }}</span>
               </div>
-              <div class="actions-quantite">
-                <button @click="modifierQuantite(item.idUnique, -1)" class="btn-quantite" aria-label="Moins">-</button>
-                <span class="quantite-texte">{{ item.quantite }}</span>
-                <button @click="modifierQuantite(item.idUnique, 1)" class="btn-quantite" aria-label="Plus">+</button>
+              <div class="actions-item">
+                <button @click="modifierQuantite(item, -1)" class="btn-quantite">−</button>
+                <span class="quantite-valeur">{{ item.quantite }}</span>
+                <button @click="modifierQuantite(item, 1)" class="btn-quantite">+</button>
+              </div>
+            </li>
+          </ul>
+
+          <!-- SECTION CODE PROMO -->
+          <div class="section-promo-premium">
+            <label class="label-champ-premium">{{ t('promo_code') }}</label>
+            <div class="barre-promo">
+              <input 
+                type="text" 
+                v-model="codePromo" 
+                :placeholder="t('enter_code')" 
+                class="input-promo" 
+              />
+              <button @click="verifierCodePromo" class="bouton-promo">{{ t('apply') }}</button>
+            </div>
+            <p v-if="codePromoErreur" class="promo-erreur">{{ codePromoErreur }}</p>
+            <p v-if="codePromoSucces" class="promo-succes">🎉 Code appliqué : -{{ reductionAppliquee }}%</p>
+          </div>
+
+          <!-- MODE RÉCUPÉRATION -->
+          <div class="section-mode-recup">
+            <label class="label-champ-premium">{{ t('recovery_mode') }}</label>
+            <div class="selecteur-mode-recup">
+              <button 
+                :class="{ actif: modeRecup === 'Retrait' }" 
+                @click="modeRecup = 'Retrait'"
+                class="btn-mode-option"
+              >
+                📥 Retrait ({{ t('free') }})
+              </button>
+              <button 
+                :class="{ actif: modeRecup === 'Livraison' }" 
+                @click="modeRecup = 'Livraison'"
+                class="btn-mode-option"
+              >
+                🚚 Livraison ({{ t('from_price') }})
+              </button>
+            </div>
+
+            <!-- OPTIONS RETRAIT -->
+            <div v-if="modeRecup === 'Retrait'" class="details-retrait-livraison info-retrait">
+              <span class="titre-bloc-mode">{{ t('pickup_point') }}</span>
+              <p>📍 {{ t('pickup_pt') }}</p>
+              <p>📍 {{ t('pickup_gt') }}</p>
+            </div>
+
+            <!-- OPTIONS LIVRAISON -->
+            <div v-if="modeRecup === 'Livraison'" class="details-retrait-livraison info-livraison">
+              <span class="titre-bloc-mode">{{ t('delivery_zone') }}</span>
+              <div class="selecteur-zone-livraison">
+                <button 
+                  :class="{ actif: zoneLivraison === 'Petite-Terre' }" 
+                  @click="zoneLivraison = 'Petite-Terre'"
+                  class="btn-zone-option"
+                >
+                  {{ t('delivery_pt') }}
+                </button>
+                <button 
+                  :class="{ actif: zoneLivraison === 'Grande-Terre' }" 
+                  @click="zoneLivraison = 'Grande-Terre'"
+                  class="btn-zone-option"
+                >
+                  {{ t('delivery_gt') }}
+                </button>
               </div>
             </div>
           </div>
 
-          <div class="section-formulaire">
-            <h3>Code Privilège</h3>
-            <div style="display: flex; gap: 10px;">
-              <input type="text" v-model="codePromoInput" placeholder="Saisir un code" class="input-premium uppercase-input" />
-              <button @click="verifierCodePromo" class="bouton-sauvegarder">Appliquer</button>
+          <!-- FORMULAIRE INFORMATIONS CLIENT -->
+          <div class="section-infos-client">
+            <label class="label-champ-premium">{{ t('your_info') }}</label>
+            <div class="formulaire-client">
+              <div class="groupe-saisie">
+                <label>{{ t('fullname') }}</label>
+                <input type="text" v-model="nomClient" placeholder="Ex: Ibrahima" required />
+              </div>
+              <div class="groupe-saisie">
+                <label>{{ t('pickup_date') }}</label>
+                <input type="date" v-model="dateSouhaitee" required />
+              </div>
             </div>
           </div>
 
-          <div class="section-formulaire">
-            <h3>Mode de récupération</h3>
-            
-            <div class="grille-options">
-              <label class="carte-option" :class="{ 'option-active': modeLivraison === 'retrait' }">
-                <input type="radio" v-model="modeLivraison" value="retrait" class="radio-cache" />
-                <span class="emoji-option">📦</span>
-                <div class="texte-option">
-                  <strong>Click & Collect</strong>
-                  <span>Gratuit</span>
-                </div>
-              </label>
-              
-              <label class="carte-option" :class="{ 'option-active': modeLivraison === 'livraison' }">
-                <input type="radio" v-model="modeLivraison" value="livraison" class="radio-cache" />
-                <span class="emoji-option">🛵</span>
-                <div class="texte-option">
-                  <strong>Livraison</strong>
-                  <span>À partir de 2 €</span>
-                </div>
-              </label>
+          <!-- RÉCAPITULATIF FINANCIER -->
+          <div class="recapitulatif-financier">
+            <div class="ligne-financiere">
+              <span>{{ t('articles') }}</span>
+              <span>{{ totalArticles.toFixed(2) }} €</span>
+            </div>
+            <div class="ligne-financiere" v-if="reductionAppliquee > 0">
+              <span>{{ t('reduction') }} (-{{ reductionAppliquee }}%)</span>
+              <span class="valeur-reduction">-{{ (totalArticles * (reductionAppliquee / 100)).toFixed(2) }} €</span>
+            </div>
+            <div class="ligne-financiere">
+              <span>{{ t('logistic_fees') }}</span>
+              <span>{{ fraisLogistiques }} €</span>
+            </div>
+            <div class="ligne-financiere total-a-payer">
+              <span>{{ t('total_to_pay') }}</span>
+              <span class="valeur-total">{{ totalGeneral.toFixed(2) }} €</span>
             </div>
 
-            <div v-if="modeLivraison === 'retrait'" class="champ-supp animate-slide-down">
-              <label>Point de retrait (Gratuit) :</label>
-              <select v-model="lieuRetrait" class="input-premium">
-                <option value="labattoir">Pour Petite-Terre : 16A Rue Du Stade, Labattoir</option>
-                <option value="dzaoudzi">Pour Grande-Terre : Pied de la barge (Dzaoudzi)</option>
-              </select>
-            </div>
-
-            <div v-if="modeLivraison === 'livraison'" class="champ-supp animate-slide-down">
-              <label>Zone de livraison :</label>
-              <select v-model="lieuLivraison" class="input-premium">
-                <option value="domicile_pt">Petite-Terre : À domicile (+2 €)</option>
-                <option value="mamoudzou">Grande-Terre : Pied de la barge Mamoudzou (+3 €)</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="section-formulaire">
-            <h3>Vos Informations</h3>
-            <div class="groupe-input">
-              <label>Nom complet</label>
-              <input type="text" v-model="nomClient" placeholder="Ex: Ibrahim Ali" class="input-premium" />
-            </div>
-            <div class="groupe-input">
-              <label>Date de récupération souhaitée :</label>
-              <input type="date" v-model="dateCommande" class="input-premium" />
-            </div>
-          </div>
-
-          <div class="zone-validation">
-            <div class="recapitulatif">
-              <div class="ligne-recap">
-                <span>Articles</span>
-                <span class="valeur-recap">{{ totalArticles }} €</span>
-              </div>
-              <div class="ligne-recap" v-if="codeApplique">
-                <span>Réduction ({{ codeApplique.code }})</span>
-                <span style="color: #1e8e3e; font-weight: 700;">-{{ calculerReduction }} €</span>
-              </div>
-              <div class="ligne-recap">
-                <span>Frais logistiques</span>
-                <span class="valeur-recap">{{ fraisLogistique }} €</span>
-              </div>
-              <div class="ligne-recap total-final">
-                <span>Total à régler</span>
-                <span>{{ totalGénéral }} €</span>
-              </div>
-            </div>
-
-            <button class="bouton-whatsapp" @click="commanderSurWhatsApp">
-              <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
+            <button @click="soumettreCommande" class="bouton-commander-whatsapp">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icone-whatsapp">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
               </svg>
-              <span>Valider sur WhatsApp</span>
+              {{ t('validate_whatsapp') }}
             </button>
           </div>
         </div>
       </div>
-    </div>
-  </transition>
+    </transition>
+  </div>
 </template>
 
 <style scoped>
-.panier-overlay { 
-  position: fixed; 
-  inset: 0; 
-  background: rgba(31, 27, 24, 0.4); 
-  backdrop-filter: blur(12px); 
-  -webkit-backdrop-filter: blur(12px); 
-  z-index: 3000; 
-  display: flex; 
-  justify-content: flex-end; 
+/* Conteneur principal */
+.tiroir-panier-wrapper {
+  position: relative;
+  z-index: 1500;
 }
 
-.panier-tiroir { 
-  width: 100%; 
-  max-width: 440px; 
-  background: rgba(253, 252, 249, 0.98); 
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  height: 100%; 
-  display: flex; 
-  flex-direction: column; 
-  box-shadow: -16px 0 50px rgba(31, 27, 24, 0.08); 
+/* Calque sombre d'arrière-plan */
+.calque-panier {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 20, 25, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 1501;
+}
+
+/* Tiroir (Drawer) de luxe */
+.contenu-tiroir {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 480px;
+  background-color: rgba(253, 252, 249, 0.96); /* Frosted linen écru */
   border-left: 1px solid var(--border-subtile);
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  z-index: 1502;
+  overflow: hidden;
 }
 
-.en-tete-tiroir { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 28px 24px; 
-  background: rgba(255, 255, 255, 0.8); 
-  border-bottom: 1px solid var(--border-subtile); 
+.en-tete-panier {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 30px;
+  border-bottom: 1px solid var(--border-subtile);
 }
-
-.en-tete-tiroir h2 { 
-  font-family: 'Playfair Display', serif; 
-  margin: 0; 
-  font-size: 1.6rem; 
+.en-tete-panier h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.6rem;
   font-weight: 700;
-  color: var(--text-primary); 
+  margin: 0;
+  color: var(--text-primary);
 }
 
-.bouton-fermer { 
-  background: var(--accent-gold-light); 
-  border: 1px solid var(--border-subtile); 
-  width: 38px; 
-  height: 38px; 
-  border-radius: 50%; 
-  cursor: pointer; 
-  color: var(--text-primary); 
-  display: grid; 
-  place-items: center; 
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+.bouton-fermer-tiroir {
+  background: var(--accent-gold-light);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--text-primary);
+  display: grid;
+  place-items: center;
+  transition: all 0.2s;
+  font-size: 0.9rem;
 }
-.bouton-fermer:hover { 
-  background: var(--accent-gold); 
+.bouton-fermer-tiroir:hover {
+  background: var(--accent-gold);
   color: white;
   transform: scale(1.05);
 }
-.bouton-fermer svg { width: 16px; height: 16px; }
 
-.panier-vide { 
-  flex-grow: 1; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  justify-content: center; 
-  color: var(--text-secondary); 
-  padding: 40px;
-}
-.emoji-vide { font-size: 4rem; margin-bottom: 20px; opacity: 0.7; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.04)); }
-.panier-vide p { font-size: 1rem; font-weight: 500; font-family: 'Inter', sans-serif; text-align: center; }
-
-.contenu-panier { 
-  display: flex; 
-  flex-direction: column; 
-  height: 100%; 
-  overflow-y: auto; 
-  padding: 24px; 
-  gap: 28px; 
+/* Scrollable Container */
+.panier-rempli-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 30px 40px 30px;
+  scrollbar-width: thin;
 }
 
-.liste-articles { display: flex; flex-direction: column; gap: 14px; }
-.article-item { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 18px; 
-  background: var(--bg-carte); 
-  border-radius: 20px; 
-  border: 1px solid var(--border-subtile); 
-  box-shadow: var(--shadow-douce); 
+/* Liste des articles */
+.liste-panier {
+  list-style: none;
+  padding: 0;
+  margin: 0;
 }
-.titre-item { 
-  margin: 0 0 6px 0; 
-  font-family: 'Inter', sans-serif; 
-  font-size: 0.95rem; 
+.item-panier {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border-subtile);
+}
+
+.details-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+.titre-item {
+  font-family: 'Inter', sans-serif;
   font-weight: 700;
-  color: var(--text-primary); 
+  font-size: 0.95rem;
+  color: var(--text-primary);
 }
-.prix-unitaire { margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); }
-.details-location { 
-  font-size: 0.75rem; 
-  color: var(--accent-green); 
-  background: var(--accent-green-light); 
-  padding: 6px 12px; 
-  border-radius: 10px; 
-  margin-bottom: 10px; 
-  font-weight: 600; 
-  display: inline-block;
-  line-height: 1.4;
-  border: 1px solid rgba(38, 70, 60, 0.1);
+.dates-item {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent-gold-dark);
+}
+.prix-item {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
 }
 
-.actions-quantite { 
-  display: flex; 
-  align-items: center; 
-  gap: 12px; 
-  background: #fdfdfd; 
-  padding: 4px; 
-  border-radius: 12px; 
-  border: 1px solid var(--border-subtile); 
-}
-.btn-quantite { 
-  border: none; 
-  background: var(--bg-carte); 
-  width: 28px; 
-  height: 28px; 
-  border-radius: 8px; 
-  cursor: pointer; 
-  font-weight: 700; 
-  color: var(--text-primary); 
-  box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
+.actions-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--accent-gold-light);
+  padding: 6px 12px;
+  border-radius: 12px;
   border: 1px solid var(--border-subtile);
-  transition: all 0.2s;
 }
-.btn-quantite:active { transform: scale(0.9); }
-.quantite-texte { font-weight: 700; font-family: 'Inter', sans-serif; min-width: 22px; text-align: center; font-size: 0.9rem; }
-
-.section-formulaire { 
-  background: var(--bg-carte); 
-  padding: 24px; 
-  border-radius: 24px; 
-  border: 1px solid var(--border-subtile); 
-  box-shadow: var(--shadow-douce); 
-}
-.section-formulaire h3 { 
-  font-family: 'Playfair Display', serif; 
-  font-size: 1.15rem; 
+.btn-quantite {
+  background: transparent;
+  border: none;
+  width: 20px;
+  height: 20px;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin: 0 0 18px 0; 
-  color: var(--text-primary); 
+  cursor: pointer;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s;
+}
+.btn-quantite:hover {
+  opacity: 0.7;
+}
+.quantite-valeur {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-.grille-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.carte-option { 
-  position: relative; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  padding: 18px 10px; 
-  background: #fdfdfd; 
-  border: 1px solid var(--border-subtile); 
-  border-radius: 20px; 
-  cursor: pointer; 
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
-  text-align: center; 
-}
-.radio-cache { position: absolute; opacity: 0; }
-.emoji-option { font-size: 2rem; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05)); }
-.texte-option strong { display: block; font-family: 'Inter', sans-serif; font-size: 0.85rem; color: var(--text-primary); }
-.texte-option span { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; display: block; font-weight: 500; }
-.carte-option.option-active { 
-  background: var(--accent-gold-light); 
-  border-color: var(--accent-gold); 
-  box-shadow: 0 6px 16px rgba(197, 164, 126, 0.12);
+/* Sections de formulaire et d'options */
+.section-promo-premium, .section-mode-recup, .section-infos-client {
+  margin-top: 28px;
+  border-bottom: 1px solid var(--border-subtile);
+  padding-bottom: 24px;
 }
 
-.groupe-input, .champ-supp { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
-.groupe-input label, .champ-supp label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
+.label-champ-premium {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
 
-.input-premium { 
-  width: 100%; 
-  padding: 14px 18px; 
-  border: 1px solid var(--border-subtile); 
-  border-radius: var(--radius-input); 
-  background: #fdfdfd; 
-  font-family: 'Inter', sans-serif; 
-  font-size: 0.95rem; 
-  color: var(--text-primary); 
-  transition: all 0.3s; 
-  appearance: none; 
-  -webkit-appearance: none; 
+/* Promo Code */
+.barre-promo {
+  display: flex;
+  gap: 10px;
+}
+.input-promo {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  color: var(--text-primary);
   outline: none;
 }
-.input-premium:focus { 
-  border-color: var(--border-focus); 
-  background: #ffffff; 
-  box-shadow: 0 0 0 4px rgba(197, 164, 126, 0.12); 
+.input-promo:focus {
+  border-color: var(--accent-gold);
 }
-.uppercase-input { text-transform: uppercase; }
+.bouton-promo {
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: none;
+  background: var(--text-primary);
+  color: var(--bg-carte);
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.bouton-promo:hover {
+  opacity: 0.9;
+}
+.promo-erreur { color: #c53030; font-size: 0.8rem; font-weight: 600; margin: 8px 0 0 0; }
+.promo-succes { color: #1e8e3e; font-size: 0.8rem; font-weight: 700; margin: 8px 0 0 0; }
 
-.bouton-sauvegarder { 
-  background: var(--accent-green); 
-  color: white; 
-  border: none; 
-  padding: 12px 20px; 
-  border-radius: 12px; 
-  font-weight: 600; 
-  cursor: pointer; 
-  transition: all 0.3s ease; 
-  box-shadow: 0 4px 12px rgba(38, 70, 60, 0.15);
+/* Mode de récupération */
+.selecteur-mode-recup {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.btn-mode-option {
+  flex: 1;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-mode-option:hover {
+  border-color: var(--accent-gold);
+}
+.btn-mode-option.actif {
+  background: var(--accent-gold-light);
+  border-color: var(--accent-gold-dark);
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px rgba(197, 164, 126, 0.1);
+}
+
+.details-retrait-livraison {
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: 16px;
+  padding: 16px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+.titre-bloc-mode {
+  display: block;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.details-retrait-livraison p {
+  margin: 4px 0;
+}
+
+.selecteur-zone-livraison {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.btn-zone-option {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+.btn-zone-option.actif {
+  background: var(--accent-green-light);
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+
+/* Infos Client */
+.formulaire-client {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.groupe-saisie {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.groupe-saisie label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.groupe-saisie input {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
+  color: var(--text-primary);
+  outline: none;
 }
-.bouton-sauvegarder:hover {
-  background: #1e362e;
-  transform: translateY(-1px);
-}
-
-.zone-validation { margin-top: auto; padding-top: 10px; }
-.recapitulatif { 
-  background: var(--bg-carte); 
-  padding: 24px; 
-  border-radius: 24px; 
-  margin-bottom: 20px; 
-  border: 1px solid var(--border-subtile); 
-  box-shadow: var(--shadow-douce);
-}
-.ligne-recap { display: flex; justify-content: space-between; margin-bottom: 14px; color: var(--text-secondary); font-size: 0.95rem; font-family: 'Inter', sans-serif; font-weight: 500; }
-.valeur-recap { color: var(--text-primary); font-weight: 600; }
-.total-final { 
-  margin-top: 18px; 
-  padding-top: 18px; 
-  border-top: 1px dashed var(--border-subtile); 
-  font-weight: 800; 
-  font-size: 1.3rem; 
-  color: var(--accent-green); 
-  margin-bottom: 0; 
+.groupe-saisie input:focus {
+  border-color: var(--accent-gold);
 }
 
-.bouton-whatsapp { 
-  width: 100%; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  gap: 12px; 
-  background: #25D366; 
-  color: white; 
-  border: none; 
-  padding: 18px; 
-  border-radius: var(--radius-input); 
-  font-weight: 700; 
-  font-size: 1.05rem; 
-  font-family: 'Inter', sans-serif; 
-  cursor: pointer; 
-  box-shadow: 0 10px 28px rgba(37, 211, 102, 0.3); 
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); 
+/* Récapitulatif financier */
+.recapitulatif-financier {
+  margin-top: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
-.bouton-whatsapp:hover {
-  background: #20bc5a;
+.ligne-financiere {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.valeur-reduction {
+  color: #c53030;
+}
+.total-a-payer {
+  border-top: 1px solid var(--border-subtile);
+  padding-top: 16px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+.valeur-total {
+  color: var(--accent-green);
+}
+
+.bouton-commander-whatsapp {
+  width: 100%;
+  padding: 16px;
+  background-color: var(--accent-green);
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 10px 24px rgba(38, 70, 60, 0.2);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  margin-top: 14px;
+}
+.bouton-commander-whatsapp:hover {
+  background-color: #1e362e;
   transform: translateY(-2px);
-  box-shadow: 0 14px 32px rgba(37, 211, 102, 0.4);
+  box-shadow: 0 14px 28px rgba(38, 70, 60, 0.3);
 }
-.bouton-whatsapp:active { 
-  transform: scale(0.98); 
-  box-shadow: 0 6px 16px rgba(37, 211, 102, 0.25); 
+.bouton-commander-whatsapp:active {
+  transform: translateY(0);
+}
+.icone-whatsapp {
+  width: 20px;
+  height: 20px;
 }
 
-/* Animations CSS */
-.animate-slide-down {
-  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+/* Panier vide */
+.panier-vide {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  padding: 40px;
 }
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.icone-panier-vide {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  opacity: 0.3;
 }
 
 /* --- TRANSITIONS --- */
-.slide-drawer-enter-active,
-.slide-drawer-leave-active {
-  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+/* Overlay Fade */
+.fade-overlay-enter-active,
+.fade-overlay-leave-active {
+  transition: opacity 0.3s ease;
 }
-
-.slide-drawer-enter-active .panier-tiroir,
-.slide-drawer-leave-active .panier-tiroir {
-  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.slide-drawer-enter-from,
-.slide-drawer-leave-to {
+.fade-overlay-enter-from,
+.fade-overlay-leave-to {
   opacity: 0;
 }
 
-.slide-drawer-enter-from .panier-tiroir,
-.slide-drawer-leave-to .panier-tiroir {
+/* Drawer Slide */
+.slide-drawer-enter-active,
+.slide-drawer-leave-active {
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide-drawer-enter-from,
+.slide-drawer-leave-to {
   transform: translateX(100%);
 }
 </style>

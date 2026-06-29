@@ -1,103 +1,91 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue';
+import { t } from '../utils/i18n';
 
-const props = defineProps({
-  produit: Object
-})
-
-const emit = defineEmits(['ajouter-produit'])
-
-// État réactif local pour gérer la sélection du format sans impacter App.vue
-const varianteActive = ref(null)
-
-// Initialisation au chargement du composant
-onMounted(() => {
-  if (props.produit?.variantes?.length > 0) {
-    varianteActive.value = props.produit.variantes[0]
-  }
-})
-
-// Déclencheur tactile pour les pilules
-const selectionnerVariante = (variante) => {
-  varianteActive.value = variante
-}
-
-// Construction de l'objet transactionnel avant l'envoi au parent
-const ajouterAuPanier = () => {
-  const produitACommander = {
-    ...props.produit,
-    varianteChoisie: varianteActive.value
-  }
-  emit('ajouter-produit', produitACommander)
-}
+const props = defineProps(['produit']);
+const emit = defineEmits(['ajouter-produit']);
 </script>
 
 <template>
-  <article class="carte-premium">
-    <div class="conteneur-image">
-      <img :src="produit.image_url" :alt="produit.titre" class="image-produit" loading="lazy" />
-      <span class="badge-tag">Gastronomie</span>
+  <div class="carte-produit">
+    <div class="badge-type-gastronomie">{{ t('gastronomy_badge') }}</div>
+    <div class="image-wrapper">
+      <img :src="produit.image_url" :alt="produit.titre" class="image-produit" />
     </div>
+    <h3>{{ produit.titre }}</h3>
+    <p class="description">{{ produit.description }}</p>
     
-    <div class="contenu-carte">
-      <h3 class="titre-produit">{{ produit.titre }}</h3>
-      <p class="description-produit">{{ produit.description }}</p>
-      
-      <div class="selecteur-pilules" v-if="produit.variantes?.length > 1">
-        <button 
-          v-for="variante in produit.variantes" 
-          :key="variante.id"
-          class="pilule-format"
-          :class="{ active: varianteActive?.id === variante.id }"
-          @click="selectionnerVariante(variante)"
-        >
-          {{ variante.nom }}
-        </button>
-      </div>
-
-      <div class="pied-carte">
-        <div class="zone-prix">
-          <span class="label-prix">Prix</span>
-          <span class="prix-affiche">
-            {{ varianteActive ? varianteActive.prix : (produit.variantes?.[0]?.prix || 0) }} €
-          </span>
-        </div>
-        <button class="bouton-ajouter-premium" @click="ajouterAuPanier" aria-label="Ajouter au panier">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
-        </button>
-      </div>
+    <div class="selecteur-pilules">
+      <button 
+        v-for="variante in produit.variantes" 
+        :key="variante.nom"
+        class="pilule-format"
+        :class="{ active: produit.varianteChoisie.nom === variante.nom }"
+        @click="produit.varianteChoisie = variante"
+      >
+        {{ variante.nom }}
+      </button>
     </div>
-  </article>
+
+    <div class="bas-carte">
+      <div class="conteneur-prix">
+        <span class="label-prix">{{ t('price_label') }}</span>
+        <span class="valeur-prix">{{ (produit.prix_de_base + produit.varianteChoisie.supplement_prix) }} €</span>
+      </div>
+      <button @click="emit('ajouter-produit', produit)" class="bouton-ajouter">
+        {{ t('add_to_cart') }}
+      </button>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-.carte-premium {
+.carte-produit {
+  background: var(--bg-carte);
+  border-radius: var(--radius-carte, 24px);
+  padding: 24px;
+  border: 1px solid var(--border-subtile);
+  box-shadow: var(--shadow-douce);
   display: flex;
   flex-direction: column;
-  height: 100%;
-  background-color: var(--bg-carte);
-  border: 1px solid var(--border-subtile);
-  border-radius: var(--radius-carte);
+  position: relative;
   overflow: hidden;
-  box-shadow: var(--shadow-douce);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.carte-premium:hover {
+.carte-produit:hover {
   transform: translateY(-6px);
-  box-shadow: var(--shadow-premium), var(--shadow-hover);
+  box-shadow: var(--shadow-premium, 0 30px 60px rgba(31, 27, 24, 0.06)), var(--shadow-hover, 0 24px 50px rgba(197, 164, 126, 0.12));
   border-color: rgba(197, 164, 126, 0.4);
 }
 
-.conteneur-image {
+/* Badge Traiteur */
+.badge-type-gastronomie {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 10;
+  background: rgba(38, 70, 60, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* Conteneur d'image & Effet Zoom */
+.image-wrapper {
   width: 100%;
   aspect-ratio: 4 / 3;
+  border-radius: 16px;
   overflow: hidden;
-  position: relative;
-  background-color: #f7f6f2;
+  margin-bottom: 20px;
 }
 
 .image-produit {
@@ -107,46 +95,19 @@ const ajouterAuPanier = () => {
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.carte-premium:hover .image-produit {
-  transform: scale(1.05);
+.carte-produit:hover .image-produit {
+  transform: scale(1.08);
 }
 
-.badge-tag {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  background-color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--accent-green);
-  border: 1px solid rgba(197, 164, 126, 0.15);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-}
-
-.contenu-carte {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-}
-
-.titre-produit {
+.carte-produit h3 {
   font-family: 'Playfair Display', serif;
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 700;
   margin: 0 0 10px 0;
   color: var(--text-primary);
-  line-height: 1.3;
 }
 
-.description-produit {
-  font-family: 'Inter', sans-serif;
+.description {
   font-size: 0.9rem;
   color: var(--text-secondary);
   margin: 0 0 20px 0;
@@ -184,84 +145,65 @@ const ajouterAuPanier = () => {
   background: var(--accent-gold-light);
 }
 
+/* Style ACTIF commun (opacité totale, légère ombre) */
 .pilule-format.active {
+  opacity: 1;
+  border-color: transparent;
   background-color: var(--accent-green);
   color: #ffffff;
-  border-color: transparent;
   box-shadow: 0 8px 16px rgba(38, 70, 60, 0.15);
 }
 
-/* Zone d'action finale */
-.pied-carte {
+/* Section Bas de Carte */
+.bas-carte {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: auto;
-  padding-top: 18px;
   border-top: 1px solid var(--border-subtile);
+  padding-top: 18px;
+  margin-top: auto;
 }
 
-.zone-prix {
+.conteneur-prix {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 .label-prix {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--text-secondary);
 }
 
-.prix-affiche {
-  font-family: 'Inter', sans-serif;
+.valeur-prix {
   font-size: 1.35rem;
   font-weight: 800;
-  color: var(--text-primary);
+  color: var(--accent-green);
 }
 
-.bouton-ajouter-premium {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background-color: var(--btn-primary);
-  color: var(--btn-primary-text);
+.bouton-ajouter {
+  background: var(--accent-green);
+  color: #ffffff;
   border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(38, 70, 60, 0.2);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(38, 70, 60, 0.15);
 }
 
-.bouton-ajouter-premium svg {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.3s ease;
+.bouton-ajouter:hover {
+  background: #1e362e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(38, 70, 60, 0.25);
 }
 
-.bouton-ajouter-premium:hover {
-  background-color: #1e362e;
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 8px 20px rgba(38, 70, 60, 0.3);
-}
-
-.bouton-ajouter-premium:active {
-  transform: scale(0.95);
-}
-
-@media (max-width: 768px) {
-  .conteneur-image {
-    margin: 12px 12px 0 12px;
-    width: calc(100% - 24px);
-    border-radius: 16px;
-  }
-  
-  .contenu-carte {
-    padding: 18px;
-  }
+.bouton-ajouter:active {
+  transform: translateY(0);
 }
 </style>
