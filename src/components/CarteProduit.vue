@@ -30,7 +30,7 @@ const emit = defineEmits(['ajouter-produit']);
     <div class="bas-carte">
       <div class="conteneur-prix">
         <span class="label-prix">{{ t('price_label') }}</span>
-        <span class="valeur-prix">{{ (produit.prix_de_base + produit.varianteChoisie.supplement_prix) }} €</span>
+        <span class="valeur-prix">{{ produit.varianteChoisie.prix }} €</span>
       </div>
       <button @click="emit('ajouter-produit', produit)" class="bouton-ajouter">
         {{ t('add_to_cart') }}

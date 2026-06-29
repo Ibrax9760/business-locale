@@ -44,7 +44,7 @@ const ajouterAuPanier = (article, estProduit = false) => {
   if (estProduit) {
     idUnique = `${article.id}-${article.varianteChoisie.nom}`;
     titreComplet = `${article.titre} - ${article.varianteChoisie.nom}`;
-    prixFinal = article.prix_de_base + article.varianteChoisie.supplement_prix;
+    prixFinal = article.varianteChoisie.prix;
   } else {
     idUnique = `${article.id}-${article.dateDebutSelectionnee}`;
     titreComplet = article.titre || article.nom;
