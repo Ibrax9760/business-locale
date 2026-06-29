@@ -28,7 +28,8 @@ const estDejaReserve = computed(() => {
   const debut = new Date(dateDebut.value);
   const fin = new Date(dateFin.value);
   
-  return props.equipement.dates_indisponibles.some(dateStr => {
+  const indispo = props.equipement.dates_indisponibles || [];
+  return indispo.some(dateStr => {
     const d = new Date(dateStr);
     return d >= debut && d <= fin;
   });

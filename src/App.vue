@@ -396,6 +396,7 @@ onMounted(async () => {
     <TiroirPanier 
       :panier="panier" 
       :panierOuvert="panierOuvert"
+      :utilisateur="utilisateur"
       @close-panier="panierOuvert = false"
       @update-panier="panier = $event"
       @commander-whatsapp="executerCommandeWhatsApp"

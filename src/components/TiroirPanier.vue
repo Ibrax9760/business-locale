@@ -5,7 +5,8 @@ import { t } from '../utils/i18n'
 
 const props = defineProps({
   panier: Array,
-  panierOuvert: Boolean
+  panierOuvert: Boolean,
+  utilisateur: Object
 })
 
 const emit = defineEmits(['close-panier', 'update-panier', 'commander-whatsapp'])
@@ -76,17 +77,19 @@ const soumettreCommande = async () => {
 
   // 1. Sauvegarde en base de données via Supabase
   const payloadDb = {
-    nom_client: nomClient.value,
-    mode_recuperation: modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`,
-    total_general: totalGeneral.value,
-    statut: 'En attente',
+    client_id: props.utilisateur ? props.utilisateur.id : null,
     details_panier: props.panier.map(item => ({
       titre: item.titre,
       quantite: item.quantite,
       prix: item.prix,
       dateDebut: item.dateDebut,
       dateFin: item.dateFin
-    }))
+    })),
+    mode_recuperation: modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`,
+    frais_logistique: fraisLogistiques.value,
+    total_general: totalGeneral.value,
+    date_commande: dateSouhaitee.value,
+    statut: 'En attente'
   }
 
   const { data, error } = await supabase
