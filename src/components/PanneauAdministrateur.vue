@@ -53,6 +53,29 @@ const sauvegarderCommande = async () => {
   chargerCommandes()
 }
 
+const ouvrirEditionCommande = (cmd) => {
+  commandeEnEdition.value = cmd
+  formulaireCommande.value = { ...cmd }
+  modeEditionCommande.value = true
+  modalCommandeOuverte.value = true
+}
+
+const modifierRoleUtilisateur = async (userId, nouveauRole) => {
+  try {
+    const { error } = await supabase
+      .from('profils')
+      .update({ role: nouveauRole })
+      .eq('id', userId)
+      
+    if (error) throw error
+    alert("Rôle de l'utilisateur mis à jour avec succès !")
+    chargerUtilisateurs()
+  } catch (error) {
+    console.error("Échec de la modification du rôle :", error.message)
+    alert("Erreur lors de la mise à jour du rôle.")
+  }
+}
+
 const supprimerCommande = async (cmd) => {
   if (!confirm("Supprimer ?")) return
   await supabase.from('commandes').delete().eq('id', cmd.id)
@@ -104,20 +127,37 @@ onMounted(chargerCommandes)
       </div>
     </div>
 
+    <!-- ONGLET COMMANDES -->
     <div v-if="ongletActif === 'commandes'" class="contenu-onglet">
-      <table class="table-premium">
-        <thead><tr><th>Client</th><th>Total</th><th>Statut</th><th>Actions</th></tr></thead>
-        <tbody>
-          <tr v-for="cmd in listeCommandes" :key="cmd.id">
-            <td>{{ cmd.nom_client }}</td>
-            <td>{{ cmd.total_general }} €</td>
-            <td><span class="badge-statut" :class="getCouleurStatut(cmd.statut)">{{ cmd.statut }}</span></td>
-            <td><button @click="supprimerCommande(cmd)" class="btn-icone danger">🗑️</button></td>
-          </tr>
-        </tbody>
-      </table>
+      <div v-if="chargement" class="chargement-premium">
+        Chargement des commandes en cours...
+      </div>
+      <div v-else class="table-responsive">
+        <table class="table-premium">
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Total</th>
+              <th>Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="cmd in listeCommandes" :key="cmd.id">
+              <td class="cellule-forte">{{ cmd.nom_client }}</td>
+              <td class="cellule-prix">{{ cmd.total_general }} €</td>
+              <td><span class="badge-statut" :class="getCouleurStatut(cmd.statut)">{{ cmd.statut }}</span></td>
+              <td class="cellule-actions">
+                <button @click="ouvrirEditionCommande(cmd)" class="btn-icone" title="Modifier le statut">✏️</button>
+                <button @click="supprimerCommande(cmd)" class="btn-icone danger" title="Supprimer">🗑️</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
+    <!-- ONGLET PROMOTIONS -->
     <div v-if="ongletActif === 'promotions'" class="contenu-onglet">
       <div class="formulaire-promo">
         <input v-model="nouvellePromo.code" placeholder="CODE" class="input-admin" />
@@ -128,21 +168,99 @@ onMounted(chargerCommandes)
         <input type="number" v-model="nouvellePromo.valeur" class="input-admin" />
         <button @click="ajouterPromo" class="bouton-sauvegarder">Ajouter</button>
       </div>
-      <table class="table-premium">
-        <thead><tr><th>Code</th><th>Valeur</th><th>Action</th></tr></thead>
-        <tbody>
-          <tr v-for="promo in listePromos" :key="promo.id">
-            <td>{{ promo.code }}</td>
-            <td>{{ promo.valeur }} {{ promo.type_reduction === 'pourcentage' ? '%' : '€' }}</td>
-            <td><button @click="supprimerPromo(promo.id)" class="btn-icone danger">🗑️</button></td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table-premium">
+          <thead><tr><th>Code</th><th>Valeur</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr v-for="promo in listePromos" :key="promo.id">
+              <td class="cellule-forte">{{ promo.code }}</td>
+              <td class="cellule-prix">{{ promo.valeur }} {{ promo.type_reduction === 'pourcentage' ? '%' : '€' }}</td>
+              <td><button @click="supprimerPromo(promo.id)" class="btn-icone danger">🗑️</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
+    <!-- ONGLET UTILISATEURS -->
     <div v-if="ongletActif === 'utilisateurs'" class="contenu-onglet">
-      <p>Gestion utilisateurs en cours de chargement...</p>
+      <div v-if="chargement" class="chargement-premium">
+        Chargement des utilisateurs en cours...
+      </div>
+      <div v-else class="table-responsive">
+        <table class="table-premium">
+          <thead>
+            <tr>
+              <th>Nom</th>
+              <th>Rôle</th>
+              <th>Modifier Rôle</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="user in listeUtilisateurs" :key="user.id">
+              <td class="cellule-forte">{{ user.nom || 'Client sans nom' }}</td>
+              <td>
+                <span class="badge-statut" :class="user.role === 'super_admin' ? 'badge-attente' : 'badge-succes'">
+                  {{ user.role || 'client' }}
+                </span>
+              </td>
+              <td>
+                <select 
+                  :value="user.role || 'client'" 
+                  @change="modifierRoleUtilisateur(user.id, $event.target.value)"
+                  class="input-admin-select"
+                >
+                  <option value="client">Client</option>
+                  <option value="vendeur">Vendeur</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
+
+    <!-- MODAL D'ÉDITION DE STATUT DE COMMANDE -->
+    <transition name="modal-pop">
+      <div v-if="modalCommandeOuverte" class="modal-overlay" @click.self="modalCommandeOuverte = false">
+        <div class="modal-auth">
+          <button class="bouton-fermer-auth" @click="modalCommandeOuverte = false">✖</button>
+          <h2>Modifier la Commande</h2>
+          
+          <form @submit.prevent="sauvegarderCommande">
+            <div class="groupe-champ">
+              <label>Statut de la commande</label>
+              <select v-model="formulaireCommande.statut">
+                <option value="En attente">En attente</option>
+                <option value="En préparation">En préparation</option>
+                <option value="Validée">Validée</option>
+                <option value="Annulée">Annulée</option>
+              </select>
+            </div>
+
+            <div class="groupe-champ">
+              <label>Nom du Client</label>
+              <input type="text" v-model="formulaireCommande.nom_client" required />
+            </div>
+
+            <div class="groupe-champ">
+              <label>Total Général (€)</label>
+              <input type="number" v-model="formulaireCommande.total_general" step="0.01" required />
+            </div>
+
+            <div class="groupe-champ">
+              <label>Mode de récupération</label>
+              <input type="text" v-model="formulaireCommande.mode_recuperation" required />
+            </div>
+
+            <button type="submit" class="bouton-valider-auth">
+              Sauvegarder les modifications
+            </button>
+          </form>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -164,7 +282,7 @@ onMounted(chargerCommandes)
 .bouton-promo { height: 42px; margin-bottom: 2px; }
 
 .table-responsive { width: 100%; overflow-x: auto; background: #ffffff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
-.table-premium { width: 100%; border-collapse: collapse; text-align: left; font-family: 'Inter', sans-serif; }
+.table-premium { width: 100%; border-collapse: collapse; text-align: left; font-family: 'Inter', sans-serif; min-width: 600px; }
 .table-premium th { background: #f8fafc; padding: 16px 20px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6b7b8c; border-bottom: 1px solid rgba(0,0,0,0.05); }
 .table-premium td { padding: 20px; border-bottom: 1px solid rgba(0,0,0,0.03); font-size: 0.95rem; color: #1a1d20; vertical-align: middle; }
 .cellule-forte { font-weight: 600; }
@@ -192,6 +310,32 @@ onMounted(chargerCommandes)
 .groupe-champ label { font-size: 0.85rem; font-weight: 600; margin-bottom: 8px; color: #4a5568; text-transform: uppercase; letter-spacing: 0.5px;}
 .groupe-champ input, .groupe-champ select { width: 100%; padding: 12px; border: 1px solid #d1d9e0; border-radius: 12px; font-size: 1rem; background: #f8fafc; }
 .bouton-valider-auth { width: 100%; padding: 14px; margin-top: 10px; border-radius: 14px; background: #3b302a; color: #ffffff; font-weight: 700; border: none; cursor: pointer; }
+
+/* --- INPUT SELECTION ROLE --- */
+.input-admin-select {
+  padding: 8px 12px;
+  border: 1px solid #d1d9e0;
+  border-radius: 8px;
+  background: #f8fafc;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1a1d20;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.input-admin-select:focus {
+  border-color: #2b4c40;
+}
+
+.chargement-premium {
+  padding: 40px;
+  text-align: center;
+  font-family: 'Inter', sans-serif;
+  color: #6b7b8c;
+  font-weight: 500;
+}
 
 /* --- TRANSITIONS MODALE (modal-pop) --- */
 .modal-pop-enter-active,
