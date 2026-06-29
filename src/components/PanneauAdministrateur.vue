@@ -15,6 +15,7 @@ const listePromos = ref([])
 const chargement = ref(true)
 
 const modalCommandeOuverte = ref(false)
+const modalPromoOuverte = ref(false)
 const modeEditionCommande = ref(false)
 const commandeEnEdition = ref(null)
 
@@ -89,6 +90,7 @@ const ajouterPromo = async () => {
     valeur: nouvellePromo.value.valeur 
   }])
   nouvellePromo.value = { code: '', type_reduction: 'pourcentage', valeur: 0 }
+  modalPromoOuverte.value = false
   chargerPromos()
 }
 
@@ -159,14 +161,10 @@ onMounted(chargerCommandes)
 
     <!-- ONGLET PROMOTIONS -->
     <div v-if="ongletActif === 'promotions'" class="contenu-onglet">
-      <div class="formulaire-promo">
-        <input v-model="nouvellePromo.code" placeholder="CODE" class="input-admin" />
-        <select v-model="nouvellePromo.type_reduction" class="input-admin">
-          <option value="pourcentage">Pourcentage (%)</option>
-          <option value="fixe">Fixe (€)</option>
-        </select>
-        <input type="number" v-model="nouvellePromo.valeur" class="input-admin" />
-        <button @click="ajouterPromo" class="bouton-sauvegarder">Ajouter</button>
+      <div class="barre-actions">
+        <button @click="modalPromoOuverte = true" class="bouton-action principal">
+          ✨ Nouveau Code Promo
+        </button>
       </div>
       <div class="table-responsive">
         <table class="table-premium">
@@ -256,6 +254,41 @@ onMounted(chargerCommandes)
 
             <button type="submit" class="bouton-valider-auth">
               Sauvegarder les modifications
+            </button>
+          </form>
+        </div>
+      </div>
+    </transition>
+
+    <!-- MODAL D'AJOUT DE CODE PROMO (FORME BULLE) -->
+    <transition name="modal-pop">
+      <div v-if="modalPromoOuverte" class="modal-overlay" @click.self="modalPromoOuverte = false">
+        <div class="modal-auth">
+          <button class="bouton-fermer-auth" @click="modalPromoOuverte = false">✖</button>
+          <h2>Nouveau Code Promo</h2>
+          <p style="font-size: 0.85rem; color: #6b7b8c; margin-bottom: 20px;">Créez un code privilège pour vos clients</p>
+          
+          <form @submit.prevent="ajouterPromo">
+            <div class="groupe-champ">
+              <label>Code de réduction</label>
+              <input v-model="nouvellePromo.code" placeholder="EX: BIENVENUE10" class="input-admin" style="text-transform: uppercase;" required />
+            </div>
+
+            <div class="groupe-champ">
+              <label>Type de réduction</label>
+              <select v-model="nouvellePromo.type_reduction" class="input-admin">
+                <option value="pourcentage">Pourcentage (%)</option>
+                <option value="fixe">Valeur Fixe (€)</option>
+              </select>
+            </div>
+
+            <div class="groupe-champ">
+              <label>Valeur de réduction</label>
+              <input type="number" v-model="nouvellePromo.valeur" class="input-admin" required />
+            </div>
+
+            <button type="submit" class="bouton-valider-auth">
+              Créer le code promo
             </button>
           </form>
         </div>
