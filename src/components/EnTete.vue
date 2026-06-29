@@ -281,11 +281,12 @@ const actionnerDeconnexion = () => {
   position: sticky; 
   top: 0; 
   z-index: 1000; 
-  background-color: rgba(253, 252, 249, 0.85); /* Frosted linen */
+  background-color: var(--bg-nav, rgba(253, 252, 249, 0.85));
   backdrop-filter: blur(20px); 
   -webkit-backdrop-filter: blur(20px); 
   border-bottom: 1px solid var(--border-subtile);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.015);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .nav-zone { display: flex; align-items: center; }
@@ -404,7 +405,7 @@ const actionnerDeconnexion = () => {
 /* Menus contextuels (Dropdowns) */
 .menu-contextuel { 
   position: absolute; 
-  background-color: rgba(255, 255, 255, 0.95); 
+  background-color: var(--bg-carte);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-subtile); 
@@ -414,6 +415,7 @@ const actionnerDeconnexion = () => {
   overflow: hidden; 
   z-index: 1001; 
   padding: 10px 0; 
+  transition: background-color 0.3s ease;
 }
 .menu-desktop { top: 100%; left: 0; margin-top: 14px; }
 .menu-mobile { bottom: calc(100% + 16px); left: 50%; transform: translateX(-50%); }
@@ -477,14 +479,14 @@ const actionnerDeconnexion = () => {
   bottom: 28px; 
   left: 50%; 
   transform: translateX(-50%) translateY(0); 
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, border-color 0.3s ease; 
   width: auto; 
   min-width: 190px; 
   gap: 32px; 
-  background-color: rgba(255, 255, 255, 0.90); 
+  background-color: var(--bg-nav, rgba(255, 255, 255, 0.90)); 
   backdrop-filter: blur(24px); 
   -webkit-backdrop-filter: blur(24px); 
-  border: 1px solid rgba(197, 164, 126, 0.25); 
+  border: 1px solid var(--border-subtile); 
   border-radius: 99px; 
   justify-content: center; 
   align-items: center; 

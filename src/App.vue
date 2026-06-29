@@ -42,9 +42,9 @@ const afficherNotification = (texte) => {
 const ajouterAuPanier = (article, estProduit = false) => {
   let idUnique, titreComplet, prixFinal;
   if (estProduit) {
-    idUnique = `${article.id}-${article.varianteChoisie.id}`;
+    idUnique = `${article.id}-${article.varianteChoisie.nom}`;
     titreComplet = `${article.titre} - ${article.varianteChoisie.nom}`;
-    prixFinal = article.varianteChoisie.prix;
+    prixFinal = article.prix_de_base + article.varianteChoisie.supplement_prix;
   } else {
     idUnique = `${article.id}-${article.dateDebutSelectionnee}`;
     titreComplet = article.titre || article.nom;
@@ -415,6 +415,7 @@ onMounted(async () => {
 body.theme-ecru {
   --bg-app: #faf9f6;
   --bg-carte: #ffffff;
+  --bg-nav: rgba(250, 249, 246, 0.85);
   --text-primary: #1f1b18;
   --text-secondary: #6e645e;
   --accent-gold: #c5a47e;
@@ -428,6 +429,7 @@ body.theme-ecru {
 body.theme-sombre {
   --bg-app: #0e0c0b;
   --bg-carte: #181513;
+  --bg-nav: rgba(14, 12, 11, 0.85);
   --text-primary: #f5f2ee;
   --text-secondary: #b5aaa0;
   --accent-gold: #d8b88f;
@@ -441,6 +443,7 @@ body.theme-sombre {
 body.theme-pure-white {
   --bg-app: #f8fafc;
   --bg-carte: #ffffff;
+  --bg-nav: rgba(248, 250, 252, 0.85);
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --accent-gold: #64748b;
