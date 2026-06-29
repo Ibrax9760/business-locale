@@ -78,6 +78,7 @@ const soumettreCommande = async () => {
   // 1. Sauvegarde en base de données via Supabase
   const payloadDb = {
     client_id: props.utilisateur ? props.utilisateur.id : null,
+    nom_client: nomClient.value,
     details_panier: props.panier.map(item => ({
       titre: item.titre,
       quantite: item.quantite,
