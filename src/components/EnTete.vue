@@ -1,40 +1,7 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { t } from '../utils/i18n'
-
-const masquerBarreMobile = ref(false)
-let dernierePositionScroll = 0;
-
-// Algorithme d'évaluation de la direction du défilement
-const analyserDefilement = () => {
-  const positionActuelle = window.scrollY;
-
-  // Condition 1 : le défilement s'effectue vers le bas et dépasse un seuil de 50 pixels
-  if (positionActuelle > dernierePositionScroll && positionActuelle > 50) {
-    masquerBarreMobile.value = true;
-  } 
-  // Condition 2 : le défilement s'effectue vers le haut
-  else {
-    masquerBarreMobile.value = false;
-  }
-
-  // Mise à jour de la référence spatiale pour le prochain cycle d'évaluation
-  dernierePositionScroll = positionActuelle;
-};
-
-// Attachement des écouteurs lors du montage du composant
-onMounted(() => {
-  window.addEventListener('scroll', analyserDefilement);
-});
-
-// Détachement des écouteurs lors de la destruction du composant (prévention des fuites mémoire)
-onUnmounted(() => {
-  window.removeEventListener('scroll', analyserDefilement);
-});
-
-const router = useRouter()
-const route = useRoute()
 
 const props = defineProps({
   utilisateur: Object,
@@ -45,6 +12,8 @@ const props = defineProps({
 
 const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth', 'open-settings'])
 
+const router = useRouter()
+const route = useRoute()
 const menuUtilisateurOuvert = ref(false)
 
 const gererClicUtilisateur = () => {
@@ -79,7 +48,8 @@ const actionnerDeconnexion = () => {
 
 <template>
   <header class="navbar-premium">
-    <div class="nav-zone nav-gauche zone-desktop">
+    <!-- ZONE GAUCHE : RETOUR OU PROFIL -->
+    <div class="nav-zone nav-gauche">
       <button 
         v-if="route.path !== '/'" 
         @click="router.push('/')" 
@@ -90,10 +60,10 @@ const actionnerDeconnexion = () => {
           <line x1="19" y1="12" x2="5" y2="12"></line>
           <polyline points="12 19 5 12 12 5"></polyline>
         </svg>
-        <span>{{ t('return') }}</span>
+        <span class="texte-retour">{{ t('return') }}</span>
       </button>
 
-      <button class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
+      <button v-else class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="svg-profil">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
@@ -101,8 +71,9 @@ const actionnerDeconnexion = () => {
         <span v-if="utilisateur && profilClient?.nom" class="nom-utilisateur">{{ profilClient.nom }}</span>
       </button>
 
+      <!-- MENU DÉROULANT DE PROFIL/PARAMÈTRES -->
       <transition name="menu-fade">
-        <div v-if="menuUtilisateurOuvert" class="menu-contextuel menu-desktop">
+        <div v-if="menuUtilisateurOuvert" class="menu-contextuel">
           <template v-if="utilisateur">
             <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -160,6 +131,7 @@ const actionnerDeconnexion = () => {
       </transition>
     </div>
 
+    <!-- ZONE CENTRALE : NOM DE LA MARQUE -->
     <div class="nav-zone nav-centre">
       <h1 class="titre-marque" @click="router.push('/')">
         <span class="icone-panier-mignon">🧺</span>
@@ -167,7 +139,8 @@ const actionnerDeconnexion = () => {
       </h1>
     </div>
 
-    <div class="nav-zone nav-droite zone-desktop">
+    <!-- ZONE DROITE : BOUTON PANIER -->
+    <div class="nav-zone nav-droite">
       <button :class="['bouton-icone', 'panier-btn', { 'secousse-bounce': props.secoussePanier }]" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
@@ -179,96 +152,7 @@ const actionnerDeconnexion = () => {
     </div>
   </header>
 
-  <nav class="barre-mobile zone-mobile" :class="{ 'barre-cachee': masquerBarreMobile }">
-    <button 
-      v-if="route.path !== '/'" 
-      @click="router.push('/')" 
-      class="bouton-icone-mobile" 
-      aria-label="Retour au catalogue"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="19" y1="12" x2="5" y2="12"></line>
-        <polyline points="12 19 5 12 12 5"></polyline>
-      </svg>
-    </button>
-
-    <div class="conteneur-profil-mobile">
-      <button class="bouton-icone-mobile" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-      </button>
-      
-      <transition name="menu-fade">
-        <div v-if="menuUtilisateurOuvert" class="menu-contextuel menu-mobile">
-          <template v-if="utilisateur">
-            <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="9"></rect>
-                <rect x="14" y="3" width="7" height="5"></rect>
-                <rect x="14" y="12" width="7" height="9"></rect>
-                <rect x="3" y="16" width="7" height="5"></rect>
-              </svg>
-              {{ t('space_admin') }}
-            </button>
-
-            <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerVendeur">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-              </svg>
-              {{ t('space_seller') }}
-            </button>
-
-            <button class="menu-action" @click.stop="actionnerParametres">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              {{ t('settings') }}
-            </button>
-
-            <button class="menu-action action-danger" @click.stop="actionnerDeconnexion">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                <polyline points="16 17 21 12 16 7"></polyline>
-                <line x1="21" y1="12" x2="9" y2="12"></line>
-              </svg>
-              {{ t('logout') }}
-            </button>
-          </template>
-          <template v-else>
-            <button class="menu-action" @click.stop="actionnerConnexion">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                <polyline points="10 17 15 12 10 7"></polyline>
-                <line x1="15" y1="12" x2="3" y2="12"></line>
-              </svg>
-              {{ t('login') }}
-            </button>
-            <button class="menu-action" @click.stop="actionnerParametres">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-              </svg>
-              {{ t('settings') }}
-            </button>
-          </template>
-        </div>
-      </transition>
-    </div>
-
-    <button :class="['bouton-icone-mobile', { 'secousse-bounce': props.secoussePanier }]" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="9" cy="21" r="1"></circle>
-        <circle cx="20" cy="21" r="1"></circle>
-        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-      </svg>
-      <span v-if="panierLength > 0" class="badge-panier">{{ panierLength }}</span>
-    </button>
-  </nav>
-
+  <!-- Calque transparent pour fermer le menu lors d'un clic en dehors -->
   <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click.stop="menuUtilisateurOuvert = false"></div>
 </template>
 
@@ -406,6 +290,9 @@ const actionnerDeconnexion = () => {
 /* Menus contextuels (Dropdowns) */
 .menu-contextuel { 
   position: absolute; 
+  top: 100%; 
+  left: 0; 
+  margin-top: 14px;
   background-color: var(--bg-carte);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -418,8 +305,6 @@ const actionnerDeconnexion = () => {
   padding: 10px 0; 
   transition: background-color 0.3s ease;
 }
-.menu-desktop { top: 100%; left: 0; margin-top: 14px; }
-.menu-mobile { bottom: calc(100% + 16px); left: 50%; transform: translateX(-50%); }
 
 .menu-action { 
   width: 100%; 
@@ -461,69 +346,30 @@ const actionnerDeconnexion = () => {
 .menu-fade-enter-from,
 .menu-fade-leave-to {
   opacity: 0;
-  transform: translateY(10px) translateX(0);
-}
-.menu-desktop.menu-fade-enter-from,
-.menu-desktop.menu-fade-leave-to {
   transform: translateY(10px);
 }
-.menu-mobile.menu-fade-enter-from,
-.menu-mobile.menu-fade-leave-to {
-  transform: translateY(10px) translateX(-50%);
-}
 
-/* Interface Mobile & Tablette */
-.zone-mobile { display: none; }
-
-.barre-mobile { 
-  position: fixed; 
-  bottom: 28px; 
-  left: 50%; 
-  transform: translateX(-50%) translateY(0); 
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.3s ease, border-color 0.3s ease; 
-  width: auto; 
-  min-width: 190px; 
-  gap: 32px; 
-  background-color: var(--bg-nav, rgba(255, 255, 255, 0.90)); 
-  backdrop-filter: blur(24px); 
-  -webkit-backdrop-filter: blur(24px); 
-  border: 1px solid var(--border-subtile); 
-  border-radius: 99px; 
-  justify-content: center; 
-  align-items: center; 
-  padding: 12px 32px; 
-  z-index: 1000; 
-  box-shadow: 0 16px 40px rgba(31, 27, 24, 0.15); 
-}
-.barre-cachee { transform: translateX(-50%) translateY(160%); }
-.conteneur-profil-mobile { position: relative; }
-
-.bouton-icone-mobile {
-  background: transparent;
-  border: none;
-  padding: 6px;
-  cursor: pointer;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: transform 0.2s;
-}
-.bouton-icone-mobile:active {
-  transform: scale(0.9);
-}
-.bouton-icone-mobile svg {
-  width: 24px;
-  height: 24px;
-}
-
+/* Interface Mobile & Tablette - Rangement propre */
 @media (max-width: 768px) { 
-  .zone-desktop { display: none !important; } 
-  .zone-mobile { display: flex; } 
-  .nav-centre { flex: 1; } 
   .navbar-premium { padding: 16px 20px; } 
   .titre-marque { font-size: 1.1rem; } 
+  
+  /* Masquer les textes superflus */
+  .nom-utilisateur, .texte-retour { 
+    display: none !important; 
+  }
+  
+  /* Arrondir le bouton de retour pour mobile (style icône) */
+  .bouton-retour {
+    padding: 10px;
+    border-radius: 50%;
+  }
+
+  /* Compacter le bouton de profil */
+  .profil-btn {
+    padding: 10px;
+    border-radius: 50%;
+  }
 }
 
 /* Animation de rebond du panier */
