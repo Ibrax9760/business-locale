@@ -15,13 +15,55 @@ const pageActive = ref('tout');
 
 const chargement = ref(true);
 
+const obtenirDatesEntre = (debutStr, finStr) => {
+  const dates = [];
+  const debut = new Date(debutStr);
+  const fin = new Date(finStr);
+  let courante = new Date(debut);
+  while (courante <= fin) {
+    const yyyy = courante.getFullYear();
+    const mm = String(courante.getMonth() + 1).padStart(2, '0');
+    const dd = String(courante.getDate()).padStart(2, '0');
+    dates.push(`${yyyy}-${mm}-${dd}`);
+    courante.setDate(courante.getDate() + 1);
+  }
+  return dates;
+};
+
 const chargerDonnees = async () => {
   chargement.value = true;
   try {
-    const { data: p } = await supabase.from('produits_gastronomie').select('*');
-    produits.value = p ? p.map(x => ({ ...x, type: 'gastronomie', varianteChoisie: x.variantes[0] })) : [];
-    const { data: e } = await supabase.from('equipements_location').select('*');
-    equipements.value = e ? e.map(x => ({ ...x, typeElement: 'location', prix: x.prix_journalier, nom: x.titre })) : [];
+    const [resProduits, resEquipements, resReservations] = await Promise.all([
+      supabase.from('produits_gastronomie').select('*'),
+      supabase.from('equipements_location').select('*'),
+      supabase.from('reservations_equipements').select('*')
+    ]);
+
+    produits.value = resProduits.data ? resProduits.data.map(x => ({ 
+      ...x, 
+      type: 'gastronomie', 
+      varianteChoisie: x.variantes[0] 
+    })) : [];
+
+    const reservations = resReservations.data || [];
+
+    equipements.value = resEquipements.data ? resEquipements.data.map(x => {
+      const resPourEq = reservations.filter(r => r.equipement_id === x.id);
+      const datesIndisp = [];
+      resPourEq.forEach(r => {
+        if (r.date_debut && r.date_fin) {
+          datesIndisp.push(...obtenirDatesEntre(r.date_debut, r.date_fin));
+        }
+      });
+
+      return { 
+        ...x, 
+        typeElement: 'location', 
+        prix: x.prix_journalier, 
+        nom: x.titre,
+        dates_indisponibles: datesIndisp
+      };
+    }) : [];
   } catch (err) {
     console.error("Erreur de chargement :", err);
   } finally {

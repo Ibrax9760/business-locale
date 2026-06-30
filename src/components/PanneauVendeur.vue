@@ -84,10 +84,45 @@ const sauvegarderCommande = async () => {
     if (modeEditionCommande.value) {
       const { error } = await supabase.from('commandes').update(payload).eq('id', commandeEnEdition.value.id)
       if (error) throw error
-      if (payload.statut === 'Annulée') await libererDatesEquipements(commandeEnEdition.value)
+      
+      if (payload.statut === 'Annulée') {
+        await libererDatesEquipements(commandeEnEdition.value)
+      } else {
+        // S'assurer de bloquer les dates en cas de réactivation/modification (nettoyage puis insertion)
+        await libererDatesEquipements(commandeEnEdition.value)
+        if (payload.details_panier && Array.isArray(payload.details_panier)) {
+          const equipements = payload.details_panier.filter(item => item.typeElement === 'location');
+          for (const eq of equipements) {
+            if (eq.idBase && eq.dateDebut && eq.dateFin) {
+              await supabase.from('reservations_equipements').insert([{
+                equipement_id: eq.idBase,
+                date_debut: eq.dateDebut,
+                date_fin: eq.dateFin
+              }]);
+            }
+          }
+        }
+      }
     } else {
-      const { error } = await supabase.from('commandes').insert([payload])
+      const { data, error } = await supabase.from('commandes').insert([payload]).select()
       if (error) throw error
+      
+      // Bloquer les dates si création manuelle d'une commande contenant des équipements
+      if (data && data[0]) {
+        const cmdCreee = data[0];
+        if (cmdCreee.details_panier && Array.isArray(cmdCreee.details_panier)) {
+          const equipements = cmdCreee.details_panier.filter(item => item.typeElement === 'location');
+          for (const eq of equipements) {
+            if (eq.idBase && eq.dateDebut && eq.dateFin) {
+              await supabase.from('reservations_equipements').insert([{
+                equipement_id: eq.idBase,
+                date_debut: eq.dateDebut,
+                date_fin: eq.dateFin
+              }]);
+            }
+          }
+        }
+      }
     }
     modalCommandeOuverte.value = false
     await chargerCommandes()

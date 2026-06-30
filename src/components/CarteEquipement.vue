@@ -35,6 +35,18 @@ const estDejaReserve = computed(() => {
   });
 });
 
+const dateMin = computed(() => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+});
+
+const dateFinMin = computed(() => {
+  return dateDebut.value ? dateDebut.value : dateMin.value;
+});
+
 const ajouterSiValide = () => {
   if (dureeJours.value > 0 && !estDejaReserve.value) {
     emit('ajouter-equipement', {
@@ -67,11 +79,11 @@ const ajouterSiValide = () => {
     <div class="selecteur-dates-container">
       <div class="champ-date">
         <label>{{ t('date_start') }}</label>
-        <input type="date" v-model="dateDebut" class="input-date-premium" />
+        <input type="date" v-model="dateDebut" :min="dateMin" class="input-date-premium" />
       </div>
       <div class="champ-date">
         <label>{{ t('date_end') }}</label>
-        <input type="date" v-model="dateFin" class="input-date-premium" />
+        <input type="date" v-model="dateFin" :min="dateFinMin" class="input-date-premium" />
       </div>
     </div>
 

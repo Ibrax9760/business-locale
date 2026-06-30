@@ -1,12 +1,13 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { supabase } from '../utils/supabaseClient'
 import { t, currentLang } from '../utils/i18n'
 
 const props = defineProps({
   panier: Array,
   panierOuvert: Boolean,
-  utilisateur: Object
+  utilisateur: Object,
+  profilClient: Object
 })
 
 const emit = defineEmits(['close-panier', 'update-panier', 'commander-whatsapp'])
@@ -21,6 +22,20 @@ const zoneLivraison = ref('Petite-Terre')
 
 const nomClient = ref('')
 const dateSouhaitee = ref('')
+
+const dateMin = computed(() => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+});
+
+watch(() => props.profilClient?.nom, (nouveauNom) => {
+  if (nouveauNom && !nomClient.value) {
+    nomClient.value = nouveauNom;
+  }
+}, { immediate: true });
 
 const formaterDate = (d) => new Date(d).toLocaleDateString('fr-FR')
 
@@ -80,6 +95,8 @@ const soumettreCommande = async () => {
     client_id: props.utilisateur ? props.utilisateur.id : null,
     nom_client: nomClient.value,
     details_panier: props.panier.map(item => ({
+      idBase: item.idBase,
+      typeElement: item.typeElement,
       titre: item.titre,
       quantite: item.quantite,
       prix: item.prix,
@@ -102,6 +119,23 @@ const soumettreCommande = async () => {
     console.error("Erreur de sauvegarde de la commande :", error.message)
     alert("Erreur lors de la validation de la commande.")
     return
+  }
+
+  // 1.5 Bloquer les dates de location dans reservations_equipements pour éviter les conflits
+  const equipements = props.panier.filter(item => item.typeElement === 'location');
+  for (const eq of equipements) {
+    if (eq.idBase && eq.dateDebut && eq.dateFin) {
+      const { error: errRes } = await supabase
+        .from('reservations_equipements')
+        .insert([{
+          equipement_id: eq.idBase,
+          date_debut: eq.dateDebut,
+          date_fin: eq.dateFin
+        }]);
+      if (errRes) {
+        console.error("Erreur lors du blocage des dates pour l'équipement :", errRes.message);
+      }
+    }
   }
 
   // 2. Génération du message WhatsApp (Mise en page Premium & Emojis)
@@ -160,6 +194,9 @@ const soumettreCommande = async () => {
         <div v-if="props.panier.length === 0" class="panier-vide">
           <span class="icone-panier-vide">🧺</span>
           <p>{{ t('cart_empty') }}</p>
+          <button @click="emit('close-panier')" class="bouton-explorer-premium">
+            ✨ {{ t('filter_all') }}
+          </button>
         </div>
 
         <div v-else class="panier-rempli-scroll">
@@ -255,7 +292,7 @@ const soumettreCommande = async () => {
               </div>
               <div class="groupe-saisie">
                 <label>{{ t('pickup_date') }}</label>
-                <input type="date" v-model="dateSouhaitee" required />
+                <input type="date" v-model="dateSouhaitee" :min="dateMin" required />
               </div>
             </div>
           </div>
@@ -672,6 +709,23 @@ const soumettreCommande = async () => {
   font-size: 4rem;
   margin-bottom: 16px;
   opacity: 0.3;
+}
+.bouton-explorer-premium {
+  margin-top: 20px;
+  background: transparent;
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold-dark);
+  padding: 10px 24px;
+  border-radius: 99px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.bouton-explorer-premium:hover {
+  background: var(--accent-gold-light);
+  transform: scale(1.05);
 }
 
 /* --- TRANSITIONS --- */

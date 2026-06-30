@@ -61,7 +61,7 @@ const ajouterAuPanier = (article, estProduit = false) => {
     titreComplet = `${article.titre} - ${article.varianteChoisie.nom}`;
     prixFinal = article.varianteChoisie.prix;
   } else {
-    idUnique = `${article.id}-${article.dateDebutSelectionnee}`;
+    idUnique = `${article.id}-${article.dateDebutSelectionnee}_${article.dateFinSelectionnee}`;
     titreComplet = article.titre || article.nom;
     prixFinal = article.prixTotalLocation;
   }
@@ -417,6 +417,7 @@ onMounted(async () => {
       :panier="panier" 
       :panierOuvert="panierOuvert"
       :utilisateur="utilisateur"
+      :profilClient="profilClient"
       @close-panier="panierOuvert = false"
       @update-panier="panier = $event"
       @commander-whatsapp="executerCommandeWhatsApp"
