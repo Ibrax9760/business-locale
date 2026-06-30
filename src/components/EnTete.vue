@@ -48,7 +48,7 @@ const actionnerDeconnexion = () => {
 
 <template>
   <header class="navbar-premium">
-    <!-- ZONE GAUCHE : RETOUR UNIQUE -->
+    <!-- ZONE GAUCHE : RETOUR OU PROFIL + MENU CONTEXTUEL -->
     <div class="nav-zone nav-gauche">
       <button 
         v-if="route.path !== '/'" 
@@ -62,19 +62,8 @@ const actionnerDeconnexion = () => {
         </svg>
         <span class="texte-retour">{{ t('return') }}</span>
       </button>
-    </div>
 
-    <!-- ZONE CENTRALE : NOM DE LA MARQUE + STICKER PANIER À DROITE -->
-    <div class="nav-zone nav-centre">
-      <h1 class="titre-marque" @click="router.push('/')">
-        <span class="texte-boutique">{{ t('brand_title') }}</span>
-        <span class="icone-panier-mignon">🧺</span>
-      </h1>
-    </div>
-
-    <!-- ZONE DROITE : PROFIL + MENU DÉROULANT -->
-    <div class="nav-zone nav-droite">
-      <button class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
+      <button v-else class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="svg-profil">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
@@ -82,7 +71,7 @@ const actionnerDeconnexion = () => {
         <span v-if="utilisateur && profilClient?.nom" class="nom-utilisateur">{{ profilClient.nom }}</span>
       </button>
 
-      <!-- MENU DÉROULANT DE PROFIL/PARAMÈTRES -->
+      <!-- MENU DÉROULANT DE PROFIL/PARAMÈTRES (À GAUCHE) -->
       <transition name="menu-fade">
         <div v-if="menuUtilisateurOuvert" class="menu-contextuel">
           <template v-if="utilisateur">
@@ -141,9 +130,20 @@ const actionnerDeconnexion = () => {
         </div>
       </transition>
     </div>
+
+    <!-- ZONE CENTRALE : NOM DE LA MARQUE -->
+    <div class="nav-zone nav-centre">
+      <h1 class="titre-marque" @click="router.push('/')">
+        <span class="texte-boutique">{{ t('brand_title') }}</span>
+        <span class="icone-panier-mignon">🧺</span>
+      </h1>
+    </div>
+
+    <!-- ZONE DROITE : VIDE POUR LA RESPONSIVITÉ -->
+    <div class="nav-zone nav-droite"></div>
   </header>
 
-  <!-- BOUTON PANIER FLOTTANT (FAB) EN BAS À GAUCHE -->
+  <!-- BOUTON PANIER FLOTTANT (FAB) EN BAS À DROITE -->
   <button 
     :class="['bouton-panier-flottant', { 'secousse-bounce': props.secoussePanier }]" 
     @click="$emit('open-panier')" 
@@ -182,7 +182,7 @@ const actionnerDeconnexion = () => {
 .nav-zone { display: flex; align-items: center; }
 .nav-gauche { flex: 1; justify-content: flex-start; position: relative; gap: 20px; }
 .nav-centre { flex: 2; justify-content: center; }
-.nav-droite { flex: 1; justify-content: flex-end; position: relative; }
+.nav-droite { flex: 1; justify-content: flex-end; }
 
 /* --- Bouton Retour de luxe --- */
 .bouton-retour { 
@@ -323,12 +323,12 @@ const actionnerDeconnexion = () => {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-/* Menus contextuels (Dropdowns) alignés à droite sous le profil */
+/* Menus contextuels (Dropdowns) alignés à gauche sous le profil */
 .menu-contextuel { 
   position: absolute; 
   top: 100%; 
-  right: 0; 
-  left: auto;
+  left: 0; 
+  right: auto;
   margin-top: 14px;
   background-color: var(--bg-carte);
   backdrop-filter: blur(16px);
