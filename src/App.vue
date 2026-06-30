@@ -24,11 +24,18 @@ const statsNombreCommandes = ref(0);
 
 // --- ÉTATS AUTHENTIFICATION ---
 const afficherFormulaireAuth = ref(false);
-const estModeInscription = ref(false);
+const authMode = ref('connexion'); // 'connexion', 'inscription', 'oublie', 'reinitialisation'
 const emailInput = ref('');
 const motDePasseInput = ref('');
 const nomInput = ref('');
+const telephoneInput = ref('');
+const nouveauMotDePasseInput = ref('');
 const messageErreur = ref('');
+
+const estModeInscription = computed({
+  get: () => authMode.value === 'inscription',
+  set: (val) => { authMode.value = val ? 'inscription' : 'connexion' }
+});
 
 // --- WATCHER DE THÈME SUR LE BODY ---
 watch(themeActuel, (nouveauTheme) => {
@@ -182,8 +189,6 @@ const reinitialiserApp = () => {
 const executerConnexion = async () => {
   try {
     messageErreur.value = '';
-    
-    // 1. Validation de l'authentification
     const { data, error } = await supabase.auth.signInWithPassword({ 
       email: emailInput.value, 
       password: motDePasseInput.value 
@@ -191,13 +196,8 @@ const executerConnexion = async () => {
     
     if (error) throw error;
 
-    // 2. Attribution du jeton de session
     utilisateur.value = data.user;
-    
-    // 3. Exécution de la requête de sélection sur la table profils
     await recupererProfil(data.user.id);
-    
-    // 4. Fermeture de l'interface modale
     afficherFormulaireAuth.value = false;
     afficherNotification("Connexion réussie !");
     
@@ -213,7 +213,12 @@ const executerInscription = async () => {
     const { data, error } = await supabase.auth.signUp({ 
       email: emailInput.value, 
       password: motDePasseInput.value,
-      options: { data: { nom: nomInput.value } }
+      options: { 
+        data: { 
+          nom: nomInput.value,
+          telephone: telephoneInput.value
+        } 
+      }
     });
     
     if (error) throw error;
@@ -230,6 +235,38 @@ const executerInscription = async () => {
   }
 };
 
+// Demande de réinitialisation de mot de passe (envoi e-mail)
+const executerDemandeMotDePasseOublie = async () => {
+  try {
+    messageErreur.value = '';
+    const { error } = await supabase.auth.resetPasswordForEmail(emailInput.value, {
+      redirectTo: window.location.origin
+    });
+    if (error) throw error;
+    afficherNotification("E-mail de réinitialisation envoyé !");
+    authMode.value = 'connexion';
+  } catch (error) {
+    messageErreur.value = error.message;
+  }
+};
+
+// Mise à jour finale du mot de passe après clic sur le lien de récupération
+const executerMiseAJourMotDePasse = async () => {
+  try {
+    messageErreur.value = '';
+    const { error } = await supabase.auth.updateUser({
+      password: nouveauMotDePasseInput.value
+    });
+    if (error) throw error;
+    afficherNotification("Votre mot de passe a été mis à jour !");
+    afficherFormulaireAuth.value = false;
+    authMode.value = 'connexion';
+    nouveauMotDePasseInput.value = '';
+  } catch (error) {
+    messageErreur.value = error.message;
+  }
+};
+
 // --- INITIALISATION DU COMPOSANT ---
 onMounted(async () => {
   const { data: { session: s } } = await supabase.auth.getSession();
@@ -238,6 +275,22 @@ onMounted(async () => {
     utilisateur.value = s.user; 
     await recupererProfil(s.user.id);
   }
+
+  // Écouter les changements d'état d'authentification
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN') {
+      if (session?.user) {
+        utilisateur.value = session.user;
+        await recupererProfil(session.user.id);
+      }
+    } else if (event === 'SIGNED_OUT') {
+      utilisateur.value = null;
+      profilClient.value = null;
+    } else if (event === 'PASSWORD_RECOVERY') {
+      authMode.value = 'reinitialisation';
+      afficherFormulaireAuth.value = true;
+    }
+  });
 });
 </script>
 
@@ -245,19 +298,56 @@ onMounted(async () => {
   <div id="app">
     
     <transition name="modal-pop">
-      <div v-if="afficherFormulaireAuth && !utilisateur" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
+      <div v-if="afficherFormulaireAuth && (authMode === 'reinitialisation' || !utilisateur)" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
         <div class="modal-auth">
           <button class="bouton-fermer-auth" @click="afficherFormulaireAuth = false" aria-label="Fermer">✖</button>
           
-          <h2 class="titre-modal">{{ estModeInscription ? 'Créer un compte' : 'Bon retour' }}</h2>
-          <p class="soustitre-modal">Accédez à votre espace premium</p>
+          <h2 class="titre-modal">
+            <span v-if="authMode === 'connexion'">Bon retour</span>
+            <span v-else-if="authMode === 'inscription'">Créer un compte</span>
+            <span v-else-if="authMode === 'oublie'">Mot de passe oublié</span>
+            <span v-else-if="authMode === 'reinitialisation'">Nouveau mot de passe</span>
+          </h2>
+          <p class="soustitre-modal">
+            <span v-if="authMode === 'connexion'">Accédez à votre espace premium</span>
+            <span v-else-if="authMode === 'inscription'">Rejoignez notre service de prestige</span>
+            <span v-else-if="authMode === 'oublie'">Saisissez votre e-mail de récupération</span>
+            <span v-else-if="authMode === 'reinitialisation'">Choisissez votre nouveau mot de passe</span>
+          </p>
           
           <div v-if="messageErreur" class="alerte-erreur">⚠️ {{ messageErreur }}</div>
           
-          <form @submit.prevent="estModeInscription ? executerInscription() : executerConnexion()">
-            <div v-if="estModeInscription" class="groupe-champ">
-              <label>Nom</label>
-              <input type="text" v-model="nomInput" placeholder="Votre nom complet" required />
+          <!-- FORMULAIRE CONNEXION -->
+          <form v-if="authMode === 'connexion'" @submit.prevent="executerConnexion()">
+            <div class="groupe-champ">
+              <label>Email</label>
+              <input type="email" v-model="emailInput" placeholder="adresse@email.com" required />
+            </div>
+            
+            <div class="groupe-champ">
+              <label>Mot de passe</label>
+              <input type="password" v-model="motDePasseInput" placeholder="••••••••" required />
+            </div>
+            
+            <div style="text-align: right; margin-bottom: 12px;">
+              <span @click="authMode = 'oublie'" style="font-size: 0.75rem; color: var(--accent-gold-dark); cursor: pointer; font-weight: 600;">Mot de passe oublié ?</span>
+            </div>
+            
+            <button type="submit" class="bouton-valider-auth">
+              Se connecter
+            </button>
+          </form>
+
+          <!-- FORMULAIRE INSCRIPTION -->
+          <form v-else-if="authMode === 'inscription'" @submit.prevent="executerInscription()">
+            <div class="groupe-champ">
+              <label>Nom complet</label>
+              <input type="text" v-model="nomInput" placeholder="Votre nom" required />
+            </div>
+            
+            <div class="groupe-champ">
+              <label>Téléphone</label>
+              <input type="tel" v-model="telephoneInput" placeholder="Ex: 06 39 00 00 00" required />
             </div>
             
             <div class="groupe-champ">
@@ -271,12 +361,36 @@ onMounted(async () => {
             </div>
             
             <button type="submit" class="bouton-valider-auth">
-              {{ estModeInscription ? "Créer mon compte" : "Se connecter" }}
+              Créer mon compte
+            </button>
+          </form>
+
+          <!-- FORMULAIRE MOT DE PASSE OUBLIÉ -->
+          <form v-else-if="authMode === 'oublie'" @submit.prevent="executerDemandeMotDePasseOublie()">
+            <div class="groupe-champ">
+              <label>Adresse e-mail</label>
+              <input type="email" v-model="emailInput" placeholder="adresse@email.com" required />
+            </div>
+            
+            <button type="submit" class="bouton-valider-auth">
+              Envoyer le lien de récupération
+            </button>
+          </form>
+
+          <!-- FORMULAIRE RÉINITIALISATION -->
+          <form v-else-if="authMode === 'reinitialisation'" @submit.prevent="executerMiseAJourMotDePasse()">
+            <div class="groupe-champ">
+              <label>Nouveau mot de passe</label>
+              <input type="password" v-model="nouveauMotDePasseInput" placeholder="••••••••" required />
+            </div>
+            
+            <button type="submit" class="bouton-valider-auth">
+              Enregistrer le mot de passe
             </button>
           </form>
           
-          <p @click="estModeInscription = !estModeInscription" class="lien-bascule">
-            {{ estModeInscription ? 'Déjà membre ? Connectez-vous' : 'Nouveau ? Créez un compte' }}
+          <p v-if="authMode !== 'reinitialisation'" @click="authMode = (authMode === 'connexion' ? 'inscription' : 'connexion')" class="lien-bascule">
+            {{ authMode === 'inscription' ? 'Déjà membre ? Connectez-vous' : 'Nouveau ? Créez un compte' }}
           </p>
         </div>
       </div>
