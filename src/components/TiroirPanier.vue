@@ -121,6 +121,18 @@ const soumettreCommande = async () => {
     return
   }
 
+  // Stocker l'identifiant de la commande localement pour le suivi en temps réel
+  if (data && data[0]) {
+    try {
+      const commandeId = data[0].id;
+      const commandesExistantes = JSON.parse(localStorage.getItem('app-commandes') || '[]');
+      commandesExistantes.push(commandeId);
+      localStorage.setItem('app-commandes', JSON.stringify(commandesExistantes));
+    } catch (e) {
+      console.error("Impossible d'enregistrer l'ID de commande localement :", e);
+    }
+  }
+
   // 1.5 Bloquer les dates de location dans reservations_equipements pour éviter les conflits
   const equipements = props.panier.filter(item => item.typeElement === 'location');
   for (const eq of equipements) {

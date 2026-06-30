@@ -131,6 +131,17 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
         <h2 class="titre-section">{{ t('sec_gastronomy') }}</h2>
         <p class="soustitre-section">{{ t('sec_gastronomy_sub') }}</p>
       </div>
+
+      <!-- Bannière créateur de menu guidé -->
+      <div class="banniere-menu-builder-premium" v-if="pageActive !== 'location'">
+        <div class="banniere-texte">
+          <h4>🍳 Créez votre Menu Guidé Pas-à-Pas</h4>
+          <p>Associez entrées fines, plats cuisinés de fête et douceurs sucrées en quelques étapes simples pour concevoir le repas idéal.</p>
+        </div>
+        <router-link to="/menu-builder" class="bouton-banniere-builder">
+          Lancer l'assistant ✨
+        </router-link>
+      </div>
       
       <div class="grille-produits">
         <CarteProduit 
@@ -313,5 +324,62 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
   0% { opacity: 0.5; }
   50% { opacity: 1; }
   100% { opacity: 0.5; }
+}
+
+/* Bannière Menu Builder Premium */
+.banniere-menu-builder-premium {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, var(--accent-gold-light), rgba(255, 255, 255, 0.4));
+  border: 1px solid var(--accent-gold);
+  border-radius: 20px;
+  padding: 24px;
+  margin-bottom: 32px;
+  gap: 20px;
+  box-shadow: var(--shadow-douce);
+  backdrop-filter: blur(8px);
+}
+.banniere-texte h4 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem;
+  margin: 0 0 6px 0;
+  color: var(--text-primary);
+}
+.banniere-texte p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+.bouton-banniere-builder {
+  background: var(--accent-green);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 99px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(38, 70, 60, 0.2);
+  transition: all 0.3s ease;
+}
+.bouton-banniere-builder:hover {
+  transform: translateY(-2px);
+  background: #1e362e;
+  box-shadow: 0 6px 16px rgba(38, 70, 60, 0.3);
+}
+
+@media (max-width: 600px) {
+  .banniere-menu-builder-premium {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+    padding: 20px;
+  }
+  .bouton-banniere-builder {
+    text-align: center;
+  }
 }
 </style>

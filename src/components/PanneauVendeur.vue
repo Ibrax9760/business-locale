@@ -20,7 +20,8 @@ const nouvelArticle = ref({
   type: 'gastronomie', titre: '', description: '', prix: '',
   formatType: 'unique', variante_nom: formatOptions[0],
   prixParFormat: { 'Format Petit': '', 'Format Moyen': '', 'Format Grand': '' },
-  image_url: ''
+  image_url: '',
+  categorie: 'Plat'
 })
 
 const modalCommandeOuverte = ref(false)
@@ -213,7 +214,7 @@ const ouvrirModalAjout = () => { resetVendeurForm(); modalOuverte.value = true }
 const fermerModal = () => { modalOuverte.value = false; resetVendeurForm() }
 const resetVendeurForm = () => {
   modeEdition.value = false; articleEnEdition.value = null; typeArticleEnEdition.value = 'gastronomie'; imageSource.value = 'web'
-  nouvelArticle.value = { type: 'gastronomie', titre: '', description: '', prix: '', formatType: 'unique', variante_nom: formatOptions[0], prixParFormat: { 'Format Petit': '', 'Format Moyen': '', 'Format Grand': '' }, image_url: '' }
+  nouvelArticle.value = { type: 'gastronomie', titre: '', description: '', prix: '', formatType: 'unique', variante_nom: formatOptions[0], prixParFormat: { 'Format Petit': '', 'Format Moyen': '', 'Format Grand': '' }, image_url: '', categorie: 'Plat' }
 }
 
 const demarrerEdition = (article, type) => {
@@ -229,7 +230,8 @@ const demarrerEdition = (article, type) => {
     prix: type === 'gastronomie' ? (article.variantes?.[0]?.prix ?? '') : article.prix_journalier,
     formatType: isModulable ? 'modulable' : 'unique',
     variante_nom: type === 'gastronomie' && article.variantes?.[0] ? article.variantes[0].nom : formatOptions[0],
-    prixParFormat, image_url: article.image_url || ''
+    prixParFormat, image_url: article.image_url || '',
+    categorie: article.categorie || 'Plat'
   }
   modalOuverte.value = true
 }
@@ -256,14 +258,14 @@ const ajouterArticleVendeur = async () => {
   try {
     if (modeEdition.value && articleEnEdition.value) {
       if (typeArticleEnEdition.value === 'gastronomie') {
-        await supabase.from('produits_gastronomie').update({ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes() }).eq('id', articleEnEdition.value.id)
+        await supabase.from('produits_gastronomie').update({ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), categorie: nouvelArticle.value.categorie }).eq('id', articleEnEdition.value.id)
       } else {
         await supabase.from('equipements_location').update({ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, prix_journalier: parseFloat(nouvelArticle.value.prix), image_url: imageFinale }).eq('id', articleEnEdition.value.id)
       }
       emit('afficher-notification', `✏️ Modifié`)
     } else {
       if (isProduit) {
-        await supabase.from('produits_gastronomie').insert([{ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), disponible: true }])
+        await supabase.from('produits_gastronomie').insert([{ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), disponible: true, categorie: nouvelArticle.value.categorie }])
       } else {
         await supabase.from('equipements_location').insert([{ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, prix_journalier: parseFloat(nouvelArticle.value.prix), montant_caution: 0, image_url: imageFinale }])
       }
@@ -365,6 +367,17 @@ const ajouterArticleVendeur = async () => {
               </select>
             </div>
             <div class="groupe-champ"><label>Titre</label><input type="text" v-model="nouvelArticle.titre" /></div>
+          </div>
+          <div class="grille-formulaire" v-if="nouvelArticle.type === 'gastronomie'">
+            <div class="groupe-champ">
+              <label>Catégorie</label>
+              <select v-model="nouvelArticle.categorie">
+                <option value="Entrée">Entrée</option>
+                <option value="Plat">Plat principal</option>
+                <option value="Dessert">Dessert</option>
+                <option value="Boisson">Boisson</option>
+              </select>
+            </div>
           </div>
           <div class="groupe-champ pleine-largeur"><label>Description</label><textarea v-model="nouvelArticle.description"></textarea></div>
           <div class="grille-formulaire" v-if="nouvelArticle.type === 'gastronomie'">

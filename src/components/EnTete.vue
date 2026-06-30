@@ -30,6 +30,16 @@ const actionnerVendeur = () => {
   menuUtilisateurOuvert.value = false
 }
 
+const actionnerMenuBuilder = () => {
+  router.push('/menu-builder')
+  menuUtilisateurOuvert.value = false
+}
+
+const actionnerSuivi = () => {
+  router.push('/suivi')
+  menuUtilisateurOuvert.value = false
+}
+
 const actionnerParametres = () => {
   emit('open-settings')
   menuUtilisateurOuvert.value = false
@@ -74,6 +84,19 @@ const actionnerDeconnexion = () => {
       <!-- MENU DÉROULANT DE PROFIL/PARAMÈTRES (À GAUCHE) -->
       <transition name="menu-fade">
         <div v-if="menuUtilisateurOuvert" class="menu-contextuel">
+          <!-- Options communes -->
+          <button class="menu-action" @click.stop="actionnerMenuBuilder">
+            <span style="font-size: 1.1rem; line-height: 1; margin-right: 2px;">🍳</span>
+            <span>Créateur de Menu</span>
+          </button>
+          
+          <button class="menu-action" @click.stop="actionnerSuivi">
+            <span style="font-size: 1.1rem; line-height: 1; margin-right: 2px;">📦</span>
+            <span>Suivre ma commande</span>
+          </button>
+
+          <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border-subtile);" />
+
           <template v-if="utilisateur">
             <button v-if="profilClient?.role === 'super_admin'" class="menu-action" @click.stop="actionnerAdmin">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

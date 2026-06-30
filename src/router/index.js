@@ -1,8 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-// On importe HomeView.vue au lieu de App.vue
 import HomeView from '../views/HomeView.vue' 
 import PanneauVendeur from '../components/PanneauVendeur.vue'
 import PanneauAdministrateur from '../components/PanneauAdministrateur.vue'
+import MenuBuilderView from '../views/MenuBuilderView.vue'
+import SuiviView from '../views/SuiviView.vue'
 
 const routes = [
   { 
@@ -19,6 +20,16 @@ const routes = [
     path: '/admin', 
     name: 'Admin',
     component: PanneauAdministrateur 
+  },
+  {
+    path: '/menu-builder',
+    name: 'MenuBuilder',
+    component: MenuBuilderView
+  },
+  {
+    path: '/suivi',
+    name: 'Suivi',
+    component: SuiviView
   }
 ]
 
@@ -26,6 +37,5 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 })
-
 
 export default router
