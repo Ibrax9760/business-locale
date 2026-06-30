@@ -423,10 +423,12 @@ onMounted(async () => {
       @commander-whatsapp="executerCommandeWhatsApp"
     />
 
-    <div :class="['notification', { 'visible': notification.active }]">
-      <span class="icone-notif">✨</span>
-      <span>{{ notification.message }}</span>
-    </div>
+    <transition name="notif-bounce">
+      <div v-if="notification.active" class="notification">
+        <span class="icone-notif">✨</span>
+        <span>{{ notification.message }}</span>
+      </div>
+    </transition>
   </div>
 </template>
 
@@ -680,27 +682,70 @@ main {
 .lien-bascule:hover { color: var(--text-primary); text-decoration: underline; }
 .alerte-erreur { background: #fff5f5; color: #c53030; padding: 14px 18px; border-radius: 14px; margin-bottom: 24px; font-weight: 600; border: 1px solid #fed7d7; font-size: 0.9rem; }
 
-/* --- NOTIFICATIONS --- */
+/* --- NOTIFICATIONS PREMIUM --- */
 .notification {
-  position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(140px);
-  background: var(--accent-green); color: white; padding: 16px 28px;
-  border-radius: 999px; font-weight: 600; z-index: 2000; display: flex; align-items: center; gap: 10px;
-  box-shadow: 0 16px 36px rgba(38, 70, 60, 0.35); border: 1px solid rgba(197, 164, 126, 0.25);
-  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: fixed; 
+  left: 50%; 
+  bottom: 32px; 
+  transform: translateX(-50%);
+  background: var(--accent-green); 
+  color: white; 
+  padding: 16px 28px;
+  border-radius: 999px; 
+  font-weight: 600; 
+  z-index: 2000; 
+  display: flex; 
+  align-items: center; 
+  gap: 10px;
+  box-shadow: 0 16px 36px rgba(38, 70, 60, 0.35); 
+  border: 1px solid rgba(197, 164, 126, 0.25);
+  white-space: nowrap;
 }
-.notification.visible { transform: translateX(-50%) translateY(0); }
 .icone-notif { font-size: 1.1rem; }
 
 @media (max-width: 600px) {
   .notification {
     bottom: auto;
     top: 24px;
-    transform: translateX(-50%) translateY(-140px);
     box-shadow: 0 10px 25px rgba(38, 70, 60, 0.25);
+    white-space: normal;
+    text-align: center;
+    max-width: 90vw;
   }
-  .notification.visible {
-    transform: translateX(-50%) translateY(0);
+}
+
+/* Transition de notification rebondissante */
+.notif-bounce-enter-active {
+  animation: notif-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.notif-bounce-leave-active {
+  animation: notif-out 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045);
+}
+
+@keyframes notif-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(60px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes notif-out {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(60px); }
+}
+
+@media (max-width: 600px) {
+  .notif-bounce-enter-active {
+    animation: notif-in-mobile 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   }
+  .notif-bounce-leave-active {
+    animation: notif-out-mobile 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045);
+  }
+}
+@keyframes notif-in-mobile {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@keyframes notif-out-mobile {
+  0% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-60px); }
 }
 
 /* --- COMPOSANTS PARAMÈTRES (modal-settings) --- */
