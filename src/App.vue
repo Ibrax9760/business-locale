@@ -31,6 +31,11 @@ const messageErreur = ref('');
 // --- WATCHER DE THÈME SUR LE BODY ---
 watch(themeActuel, (nouveauTheme) => {
   document.body.className = nouveauTheme;
+  // Mettre à jour la balise meta color-scheme pour empêcher l'Auto Dark Mode forcé du navigateur
+  const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
+  if (metaColorScheme) {
+    metaColorScheme.setAttribute('content', nouveauTheme === 'theme-sombre' ? 'dark' : 'light');
+  }
 }, { immediate: true });
 
 // --- EMPÊCHER LE SCROLL DE L'ARRIÈRE-PLAN LORSQUE LE PANIER EST OUVERT ---
@@ -429,6 +434,7 @@ onMounted(async () => {
 
 /* --- SÉLECTION DES THÈMES SUR BODY --- */
 body.theme-ecru {
+  color-scheme: light;
   --bg-app: #faf9f6;
   --bg-carte: #ffffff;
   --bg-nav: rgba(250, 249, 246, 0.85);
@@ -443,6 +449,7 @@ body.theme-ecru {
 }
 
 body.theme-sombre {
+  color-scheme: dark;
   --bg-app: #0e0c0b;
   --bg-carte: #181513;
   --bg-nav: rgba(14, 12, 11, 0.85);
@@ -457,6 +464,7 @@ body.theme-sombre {
 }
 
 body.theme-pure-white {
+  color-scheme: light;
   --bg-app: #f8fafc;
   --bg-carte: #ffffff;
   --bg-nav: rgba(248, 250, 252, 0.85);
