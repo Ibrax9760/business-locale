@@ -478,21 +478,22 @@ const actionnerDeconnexion = () => {
     height: 56px;
   }
   .bouton-builder-flottant {
-    bottom: 94px; /* 24px + 56px + 14px */
-    right: 24px;
-    width: 56px;
-    height: 56px;
-    font-size: 1.3rem;
+    bottom: 88px;
+    right: 31px;
+    width: 42px;
+    height: 42px;
+    font-size: 1.1rem;
+    opacity: 0.75;
   }
 }
 
 .bouton-builder-flottant {
   position: fixed;
-  bottom: 105px;
-  right: 30px;
+  bottom: 98px;
+  right: 36px;
   z-index: 1400;
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background-color: var(--accent-gold);
   color: #ffffff;
@@ -500,14 +501,16 @@ const actionnerDeconnexion = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 10px 30px rgba(197, 164, 126, 0.35);
+  box-shadow: 0 8px 24px rgba(197, 164, 126, 0.25);
   cursor: pointer;
+  opacity: 0.8;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
 }
 .bouton-builder-flottant:hover {
-  transform: scale(1.08) translateY(-2px);
-  box-shadow: 0 14px 35px rgba(197, 164, 126, 0.45);
+  opacity: 1;
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 12px 30px rgba(197, 164, 126, 0.45);
   background-color: var(--accent-gold-dark);
 }
 
