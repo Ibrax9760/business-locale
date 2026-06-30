@@ -48,7 +48,7 @@ const actionnerDeconnexion = () => {
 
 <template>
   <header class="navbar-premium">
-    <!-- ZONE GAUCHE : RETOUR OU PROFIL -->
+    <!-- ZONE GAUCHE : RETOUR UNIQUE -->
     <div class="nav-zone nav-gauche">
       <button 
         v-if="route.path !== '/'" 
@@ -62,8 +62,19 @@ const actionnerDeconnexion = () => {
         </svg>
         <span class="texte-retour">{{ t('return') }}</span>
       </button>
+    </div>
 
-      <button v-else class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
+    <!-- ZONE CENTRALE : NOM DE LA MARQUE + STICKER PANIER À DROITE -->
+    <div class="nav-zone nav-centre">
+      <h1 class="titre-marque" @click="router.push('/')">
+        <span class="texte-boutique">{{ t('brand_title') }}</span>
+        <span class="icone-panier-mignon">🧺</span>
+      </h1>
+    </div>
+
+    <!-- ZONE DROITE : PROFIL + MENU DÉROULANT -->
+    <div class="nav-zone nav-droite">
+      <button class="bouton-icone profil-btn" @click.stop="gererClicUtilisateur" aria-label="Profil utilisateur">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="svg-profil">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
           <circle cx="12" cy="7" r="4"></circle>
@@ -130,27 +141,21 @@ const actionnerDeconnexion = () => {
         </div>
       </transition>
     </div>
-
-    <!-- ZONE CENTRALE : NOM DE LA MARQUE -->
-    <div class="nav-zone nav-centre">
-      <h1 class="titre-marque" @click="router.push('/')">
-        <span class="icone-panier-mignon">🧺</span>
-        <span class="texte-boutique">{{ t('brand_title') }}</span>
-      </h1>
-    </div>
-
-    <!-- ZONE DROITE : BOUTON PANIER -->
-    <div class="nav-zone nav-droite">
-      <button :class="['bouton-icone', 'panier-btn', { 'secousse-bounce': props.secoussePanier }]" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="9" cy="21" r="1"></circle>
-          <circle cx="20" cy="21" r="1"></circle>
-          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-        </svg>
-        <span v-if="panierLength > 0" class="badge-panier">{{ panierLength }}</span>
-      </button>
-    </div>
   </header>
+
+  <!-- BOUTON PANIER FLOTTANT (FAB) EN BAS À GAUCHE -->
+  <button 
+    :class="['bouton-panier-flottant', { 'secousse-bounce': props.secoussePanier }]" 
+    @click="$emit('open-panier')" 
+    aria-label="Ouvrir le panier"
+  >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="svg-panier-fab">
+      <circle cx="9" cy="21" r="1"></circle>
+      <circle cx="20" cy="21" r="1"></circle>
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+    </svg>
+    <span v-if="panierLength > 0" class="badge-panier-fab">{{ panierLength }}</span>
+  </button>
 
   <!-- Calque transparent pour fermer le menu lors d'un clic en dehors -->
   <div v-if="menuUtilisateurOuvert" class="calque-fermeture" @click.stop="menuUtilisateurOuvert = false"></div>
@@ -177,7 +182,7 @@ const actionnerDeconnexion = () => {
 .nav-zone { display: flex; align-items: center; }
 .nav-gauche { flex: 1; justify-content: flex-start; position: relative; gap: 20px; }
 .nav-centre { flex: 2; justify-content: center; }
-.nav-droite { flex: 1; justify-content: flex-end; }
+.nav-droite { flex: 1; justify-content: flex-end; position: relative; }
 
 /* --- Bouton Retour de luxe --- */
 .bouton-retour { 
@@ -203,7 +208,7 @@ const actionnerDeconnexion = () => {
 }
 .icone-retour { width: 14px; height: 14px; color: var(--text-primary); }
 
-/* Branding Premium */
+/* Branding Premium avec panier à droite */
 .titre-marque { 
   font-family: 'Playfair Display', serif; 
   font-size: 1.35rem; 
@@ -267,31 +272,63 @@ const actionnerDeconnexion = () => {
 }
 .bouton-icone svg { width: 20px; height: 20px; color: var(--text-primary); }
 
-.badge-panier { 
-  position: absolute; 
-  top: -4px; 
-  right: -4px; 
-  background-color: var(--accent-green); 
-  color: white; 
-  font-size: 0.7rem; 
-  font-weight: 700; 
-  font-family: 'Inter', sans-serif; 
-  height: 20px; 
-  min-width: 20px; 
-  border-radius: 50%; 
-  display: flex; 
-  align-items: center; 
-  justify-content: center; 
-  padding: 0 4px; 
-  border: 2px solid var(--bg-carte);
-  box-shadow: 0 4px 10px rgba(38, 70, 60, 0.25); 
+/* --- BOUTON PANIER FLOTTANT (FAB) PREMIUM EN BAS À GAUCHE --- */
+.bouton-panier-flottant {
+  position: fixed;
+  bottom: 30px;
+  left: 30px;
+  z-index: 1400; /* Juste sous le overlay du panier mais au-dessus du reste */
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: var(--accent-green);
+  color: #ffffff;
+  border: 1px solid var(--border-subtile);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(38, 70, 60, 0.35);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Menus contextuels (Dropdowns) */
+.bouton-panier-flottant:hover {
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 14px 35px rgba(38, 70, 60, 0.45);
+  background-color: #1e362e;
+}
+
+.svg-panier-fab {
+  width: 24px;
+  height: 24px;
+}
+
+.badge-panier-fab {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: #b35034; /* Badge rouge-orangé distinct */
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  height: 22px;
+  min-width: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--bg-carte);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* Menus contextuels (Dropdowns) alignés à droite sous le profil */
 .menu-contextuel { 
   position: absolute; 
   top: 100%; 
-  left: 0; 
+  right: 0; 
+  left: auto;
   margin-top: 14px;
   background-color: var(--bg-carte);
   backdrop-filter: blur(16px);
@@ -352,7 +389,8 @@ const actionnerDeconnexion = () => {
 /* Interface Mobile & Tablette - Rangement propre */
 @media (max-width: 768px) { 
   .navbar-premium { padding: 16px 20px; } 
-  .titre-marque { font-size: 1.1rem; } 
+  .titre-marque { font-size: 1.15rem; gap: 8px; } 
+  .icone-panier-mignon { font-size: 1.25rem; }
   
   /* Masquer les textes superflus */
   .nom-utilisateur, .texte-retour { 
@@ -369,6 +407,14 @@ const actionnerDeconnexion = () => {
   .profil-btn {
     padding: 10px;
     border-radius: 50%;
+  }
+
+  /* Adapter la position du FAB Panier sur mobile */
+  .bouton-panier-flottant {
+    bottom: 24px;
+    left: 24px;
+    width: 56px;
+    height: 56px;
   }
 }
 
