@@ -140,15 +140,6 @@ const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' |
         <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">{{ t('filter_rental') }}</button>
         <button class="chip-premium" :class="{ actif: pageActive === 'favoris' }" @click="pageActive = 'favoris'">Favoris ❤️ ({{ nbFavoris }})</button>
       </div>
-
-      <!-- Filtre Date Global -->
-      <div class="verificateur-date-global">
-        <label>📅 Vérifier la disponibilité des équipements pour votre date :</label>
-        <div class="input-date-global-wrapper">
-          <input type="date" v-model="dateFiltreGlobal" :min="dateMin" class="input-date-global" />
-          <button v-if="dateFiltreGlobal" @click="dateFiltreGlobal = ''" class="btn-effacer-date-global" title="Effacer le filtre">✖</button>
-        </div>
-      </div>
     </section>
 
     <!-- SQUELETTE DE CHARGEMENT PREMIUM -->
@@ -203,6 +194,15 @@ const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' |
       <div class="section-header">
         <h2 class="titre-section">{{ t('sec_rental') }}</h2>
         <p class="soustitre-section">{{ t('sec_rental_sub') }}</p>
+      </div>
+
+      <!-- Vérificateur de date pour équipements -->
+      <div class="verificateur-date-global" style="margin-top: 0; margin-bottom: 24px;">
+        <label>📅 Vérifier la disponibilité des équipements pour votre date :</label>
+        <div class="input-date-global-wrapper">
+          <input type="date" v-model="dateFiltreGlobal" :min="dateMin" class="input-date-global" />
+          <button v-if="dateFiltreGlobal" @click="dateFiltreGlobal = ''" class="btn-effacer-date-global" title="Effacer le filtre">❌</button>
+        </div>
       </div>
       
       <div class="grille-equipements">
