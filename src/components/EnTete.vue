@@ -272,11 +272,11 @@ const actionnerDeconnexion = () => {
 }
 .bouton-icone svg { width: 20px; height: 20px; color: var(--text-primary); }
 
-/* --- BOUTON PANIER FLOTTANT (FAB) PREMIUM EN BAS À GAUCHE --- */
+/* --- BOUTON PANIER FLOTTANT (FAB) PREMIUM EN BAS À DROITE --- */
 .bouton-panier-flottant {
   position: fixed;
   bottom: 30px;
-  left: 30px;
+  right: 30px;
   z-index: 1400; /* Juste sous le overlay du panier mais au-dessus du reste */
   width: 60px;
   height: 60px;
@@ -412,7 +412,7 @@ const actionnerDeconnexion = () => {
   /* Adapter la position du FAB Panier sur mobile */
   .bouton-panier-flottant {
     bottom: 24px;
-    left: 24px;
+    right: 24px;
     width: 56px;
     height: 56px;
   }
