@@ -44,17 +44,19 @@ const listePlats = computed(() => platsDisponibles.value.filter(p => p.categorie
 const listeDesserts = computed(() => platsDisponibles.value.filter(p => p.categorie === 'Dessert'))
 
 // Gestion de la sélection (bascule d'un article)
-const basculerSelection = (article, listeRef) => {
-  const index = listeRef.value.findIndex(item => item.id === article.id)
+const basculerSelection = (article, listeRefOrArr) => {
+  const list = Array.isArray(listeRefOrArr) ? listeRefOrArr : (listeRefOrArr?.value || [])
+  const index = list.findIndex(item => item.id === article.id)
   if (index === -1) {
-    listeRef.value.push({ ...article, quantiteMenu: 1 })
+    list.push({ ...article, quantiteMenu: 1 })
   } else {
-    listeRef.value.splice(index, 1)
+    list.splice(index, 1)
   }
 }
 
-const estSelectionne = (article, listeRef) => {
-  return listeRef.value.some(item => item.id === article.id)
+const estSelectionne = (article, listeRefOrArr) => {
+  const list = Array.isArray(listeRefOrArr) ? listeRefOrArr : (listeRefOrArr?.value || [])
+  return list.some(item => item.id === article.id)
 }
 
 // Calculs financiers
