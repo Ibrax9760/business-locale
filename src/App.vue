@@ -3,6 +3,7 @@ import { ref, onMounted, watch } from 'vue';
 import { supabase } from './utils/supabaseClient';
 import EnTete from './components/EnTete.vue';
 import TiroirPanier from './components/TiroirPanier.vue';
+import TiroirMenuBuilder from './components/TiroirMenuBuilder.vue';
 import { currentLang, setLang, t } from './utils/i18n';
 
 // --- ÉTATS GLOBAUX ---
@@ -10,6 +11,7 @@ const utilisateur = ref(null);
 const profilClient = ref(null);
 const panier = ref([]);
 const panierOuvert = ref(false);
+const menuBuilderOuvert = ref(false);
 const declencherSecoussePanier = ref(false);
 const notification = ref({ active: false, message: '' });
 
@@ -38,9 +40,9 @@ watch(themeActuel, (nouveauTheme) => {
   }
 }, { immediate: true });
 
-// --- EMPÊCHER LE SCROLL DE L'ARRIÈRE-PLAN LORSQUE LE PANIER EST OUVERT ---
-watch(panierOuvert, (ouvert) => {
-  if (ouvert) {
+// --- EMPÊCHER LE SCROLL DE L'ARRIÈRE-PLAN LORSQUE LE PANIER OU LE BUILDER EST OUVERT ---
+watch([panierOuvert, menuBuilderOuvert], ([panierVal, builderVal]) => {
+  if (panierVal || builderVal) {
     document.body.classList.add('overflow-locked');
   } else {
     document.body.classList.remove('overflow-locked');
@@ -394,6 +396,7 @@ onMounted(async () => {
       :panierLength="panier.length"
       :secoussePanier="declencherSecoussePanier"
       @open-panier="panierOuvert = true"
+      @open-menu-builder="menuBuilderOuvert = true"
       @deconnexion="executerDeconnexion"
       @open-auth="afficherFormulaireAuth = true" 
       @open-settings="afficherParametres = true"
@@ -408,6 +411,7 @@ onMounted(async () => {
             :utilisateur="utilisateur" 
             :profilClient="profilClient"
             @ajouter-au-panier="ajouterAuPanier"
+            @open-menu-builder="menuBuilderOuvert = true"
           />
         </transition>
       </router-view>
@@ -421,6 +425,12 @@ onMounted(async () => {
       @close-panier="panierOuvert = false"
       @update-panier="panier = $event"
       @commander-whatsapp="executerCommandeWhatsApp"
+    />
+
+    <TiroirMenuBuilder 
+      :menuBuilderOuvert="menuBuilderOuvert"
+      @close-menu-builder="menuBuilderOuvert = false"
+      @ajouter-au-panier="ajouterAuPanier"
     />
 
     <transition name="notif-bounce">

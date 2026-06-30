@@ -6,7 +6,7 @@ import CarteEquipement from '../components/CarteEquipement.vue';
 import { t } from '../utils/i18n';
 
 const props = defineProps(['panier']);
-const emit = defineEmits(['ajouter-au-panier']);
+const emit = defineEmits(['ajouter-au-panier', 'open-menu-builder']);
 
 const produits = ref([]);
 const equipements = ref([]);
@@ -174,9 +174,9 @@ const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' |
           <h4>🍳 Créez votre Menu Guidé Pas-à-Pas</h4>
           <p>Associez entrées fines, plats cuisinés de fête et douceurs sucrées en quelques étapes simples pour concevoir le repas idéal.</p>
         </div>
-        <router-link to="/menu-builder" class="bouton-banniere-builder">
+        <button @click="emit('open-menu-builder')" class="bouton-banniere-builder">
           Lancer l'assistant ✨
-        </router-link>
+        </button>
       </div>
       
       <div class="grille-produits">

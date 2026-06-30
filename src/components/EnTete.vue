@@ -10,7 +10,7 @@ const props = defineProps({
   secoussePanier: Boolean
 })
 
-const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth', 'open-settings'])
+const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth', 'open-settings', 'open-menu-builder'])
 
 const router = useRouter()
 const route = useRoute()
@@ -31,7 +31,7 @@ const actionnerVendeur = () => {
 }
 
 const actionnerMenuBuilder = () => {
-  router.push('/menu-builder')
+  emit('open-menu-builder')
   menuUtilisateurOuvert.value = false
 }
 
@@ -185,6 +185,16 @@ const actionnerDeconnexion = () => {
     <!-- ZONE DROITE : VIDE POUR LA RESPONSIVITÉ -->
     <div class="nav-zone nav-droite"></div>
   </header>
+
+  <!-- BOUTON MENU BUILDER FLOTTANT (FAB) EN BAS À DROITE (AU-DESSUS DU PANIER) -->
+  <button 
+    class="bouton-builder-flottant" 
+    @click="$emit('open-menu-builder')" 
+    aria-label="Lancer l'assistant de menu"
+    title="Créateur de Menu Guidé"
+  >
+    🍳
+  </button>
 
   <!-- BOUTON PANIER FLOTTANT (FAB) EN BAS À DROITE -->
   <button 
@@ -467,6 +477,38 @@ const actionnerDeconnexion = () => {
     width: 56px;
     height: 56px;
   }
+  .bouton-builder-flottant {
+    bottom: 94px; /* 24px + 56px + 14px */
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    font-size: 1.3rem;
+  }
+}
+
+.bouton-builder-flottant {
+  position: fixed;
+  bottom: 105px;
+  right: 30px;
+  z-index: 1400;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background-color: var(--accent-gold);
+  color: #ffffff;
+  border: 1px solid var(--border-subtile);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(197, 164, 126, 0.35);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 1.5rem;
+}
+.bouton-builder-flottant:hover {
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 14px 35px rgba(197, 164, 126, 0.45);
+  background-color: var(--accent-gold-dark);
 }
 
 /* Animation de rebond du panier */
