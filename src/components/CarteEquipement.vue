@@ -52,7 +52,7 @@ const ajouterSiValide = () => {
   <div class="carte-equipement">
     <div class="badge-type-location">{{ t('rental_badge') }}</div>
     <div class="image-wrapper">
-      <img :src="props.equipement.image_url" :alt="props.equipement.titre" class="image-equipement" />
+      <img :src="props.equipement.image_url" :alt="props.equipement.titre" class="image-equipement" loading="lazy" />
     </div>
     <h3>{{ props.equipement.titre }}</h3>
     <p class="description">{{ props.equipement.description }}</p>

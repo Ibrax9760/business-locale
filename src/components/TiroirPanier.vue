@@ -364,6 +364,7 @@ const soumettreCommande = async () => {
 .panier-rempli-scroll {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0 30px 40px 30px;
   scrollbar-width: thin;
 }

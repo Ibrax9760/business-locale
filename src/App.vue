@@ -871,4 +871,15 @@ main {
 .modal-pop-leave-to .modal-auth {
   transform: scale(0.95) translateY(10px);
 }
+
+/* --- FEEDBACK TACTILE MOBILE (SCALE SUR TAP) --- */
+button:active:not(:disabled),
+.bouton-ajouter:active:not(:disabled),
+.bouton-whatsapp:active:not(:disabled),
+.btn-icone:active:not(:disabled),
+.pilule-format:active:not(:disabled),
+.selecteur-onglets button:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.1s ease !important;
+}
 </style>
