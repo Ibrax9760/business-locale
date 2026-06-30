@@ -4,6 +4,8 @@ import PanneauVendeur from '../components/PanneauVendeur.vue'
 import PanneauAdministrateur from '../components/PanneauAdministrateur.vue'
 import MenuBuilderView from '../views/MenuBuilderView.vue'
 import SuiviView from '../views/SuiviView.vue'
+import DevisSimulatorView from '../views/DevisSimulatorView.vue'
+import LookbookView from '../views/LookbookView.vue'
 
 const routes = [
   { 
@@ -30,6 +32,16 @@ const routes = [
     path: '/suivi',
     name: 'Suivi',
     component: SuiviView
+  },
+  {
+    path: '/devis-simulator',
+    name: 'DevisSimulator',
+    component: DevisSimulatorView
+  },
+  {
+    path: '/lookbook',
+    name: 'Lookbook',
+    component: LookbookView
   }
 ]
 

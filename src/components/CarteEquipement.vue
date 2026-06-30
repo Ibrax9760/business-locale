@@ -1,12 +1,38 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { t } from '../utils/i18n';
 
-const props = defineProps(['equipement']);
+const props = defineProps(['equipement', 'dateFiltreGlobal']);
 const emit = defineEmits(['ajouter-equipement']);
+
+const estFavori = ref(false)
+
+onMounted(() => {
+  const list = JSON.parse(localStorage.getItem('app-wishlist') || '[]')
+  estFavori.value = list.includes(props.equipement.id)
+})
+
+const basculerFavori = () => {
+  let list = JSON.parse(localStorage.getItem('app-wishlist') || '[]')
+  if (estFavori.value) {
+    list = list.filter(id => id !== props.equipement.id)
+    estFavori.value = false
+  } else {
+    list.push(props.equipement.id)
+    estFavori.value = true
+  }
+  localStorage.setItem('app-wishlist', JSON.stringify(list))
+  window.dispatchEvent(new CustomEvent('wishlist-updated'))
+}
 
 const dateDebut = ref('');
 const dateFin = ref('');
+
+const estIndisponibleDateFiltre = computed(() => {
+  if (!props.dateFiltreGlobal) return false;
+  const indispo = props.equipement.dates_indisponibles || [];
+  return indispo.includes(props.dateFiltreGlobal);
+});
 
 const datesInvalides = computed(() => {
   if (!dateDebut.value || !dateFin.value) return false;
@@ -61,8 +87,11 @@ const ajouterSiValide = () => {
 </script>
 
 <template>
-  <div class="carte-equipement">
+  <div class="carte-equipement" style="position: relative;">
     <div class="badge-type-location">{{ t('rental_badge') }}</div>
+    <button @click="basculerFavori" class="bouton-favori-absolu" :class="{ favori: estFavori }" aria-label="Ajouter aux favoris">
+      ❤️
+    </button>
     <div class="image-wrapper">
       <img :src="props.equipement.image_url" :alt="props.equipement.titre" class="image-equipement" />
     </div>
@@ -93,6 +122,10 @@ const ajouterSiValide = () => {
 
     <div v-if="estDejaReserve" class="alerte-erreur-date">
       ⚠️ {{ t('err_reserved') }}
+    </div>
+
+    <div v-if="estIndisponibleDateFiltre" class="alerte-erreur-date" style="background: #fff5f5; color: #c53030; border-color: #fed7d7;">
+      🔴 Indisponible pour votre date globale de recherche.
     </div>
 
     <div class="bas-carte">
@@ -332,5 +365,31 @@ const ajouterSiValide = () => {
     flex-direction: column;
     gap: 10px;
   }
+}
+
+.bouton-favori-absolu {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  filter: grayscale(1);
+}
+.bouton-favori-absolu.favori {
+  filter: grayscale(0);
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 6px 14px rgba(220, 38, 38, 0.2);
 }
 </style>

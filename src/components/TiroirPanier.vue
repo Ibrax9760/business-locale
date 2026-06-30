@@ -23,6 +23,14 @@ const zoneLivraison = ref('Petite-Terre')
 const nomClient = ref('')
 const dateSouhaitee = ref('')
 
+// Addons & Referral refs
+const garantieCasseActive = ref(false)
+const serviceMontageActif = ref(false)
+const serviceServeursActif = ref(false)
+const nbServeurs = ref(1)
+const dureeServeurs = ref(4)
+const nomParrain = ref('')
+
 const dateMin = computed(() => {
   const today = new Date();
   const yyyy = today.getFullYear();
@@ -43,14 +51,43 @@ const totalArticles = computed(() => {
   return props.panier.reduce((sum, item) => sum + (item.prix * item.quantite), 0)
 })
 
+const panierContientLocation = computed(() => {
+  return props.panier.some(item => item.typeElement === 'location')
+})
+
+const cautionTotale = computed(() => {
+  return props.panier
+    .filter(item => item.typeElement === 'location')
+    .reduce((sum, item) => sum + ((item.montant_caution || 50) * item.quantite), 0)
+})
+
+const coutGarantieCasse = computed(() => {
+  if (!garantieCasseActive.value) return 0
+  const totalLocation = props.panier
+    .filter(item => item.typeElement === 'location')
+    .reduce((sum, item) => sum + (item.prix * item.quantite), 0)
+  return totalLocation * 0.05
+})
+
+const coutMontage = computed(() => {
+  return serviceMontageActif.value ? 50 : 0
+})
+
+const coutServeurs = computed(() => {
+  return serviceServeursActif.value ? nbServeurs.value * dureeServeurs.value * 25 : 0
+})
+
 const fraisLogistiques = computed(() => {
-  if (modeRecup.value === 'Retrait') return 0
-  return zoneLivraison.value === 'Petite-Terre' ? 2 : 3
+  let base = 0
+  if (modeRecup.value !== 'Retrait') {
+    base = zoneLivraison.value === 'Petite-Terre' ? 2 : 3
+  }
+  return base + coutMontage.value + coutServeurs.value
 })
 
 const totalGeneral = computed(() => {
   const reduction = totalArticles.value * (reductionAppliquee.value / 100)
-  return Math.max(0, totalArticles.value - reduction + fraisLogistiques.value)
+  return Math.max(0, totalArticles.value - reduction + fraisLogistiques.value + coutGarantieCasse.value)
 })
 
 const modifierQuantite = (item, delta) => {
@@ -69,11 +106,26 @@ const verifierCodePromo = async () => {
   codePromoErreur.value = ''
   codePromoSucces.value = false
   reductionAppliquee.value = 0
+  nomParrain.value = ''
 
+  const codeSaisi = codePromo.value.trim().toUpperCase()
+  
+  // Vérification dynamique du code de parrainage (ex: IBRA-5, MAEL-10)
+  const regexParrainage = /^([A-Z0-9]+)-(5|10|15)$/
+  const match = codeSaisi.match(regexParrainage)
+  
+  if (match) {
+    nomParrain.value = match[1]
+    reductionAppliquee.value = parseInt(match[2])
+    codePromoSucces.value = true
+    return
+  }
+
+  // Fallback sur la base de données
   const { data, error } = await supabase
     .from('codes_promotionnels')
     .select('*')
-    .eq('code', codePromo.value.trim().toUpperCase())
+    .eq('code', codeSaisi)
     .single()
 
   if (error || !data) {
@@ -94,15 +146,25 @@ const soumettreCommande = async () => {
   const payloadDb = {
     client_id: props.utilisateur ? props.utilisateur.id : null,
     nom_client: nomClient.value,
-    details_panier: props.panier.map(item => ({
-      idBase: item.idBase,
-      typeElement: item.typeElement,
-      titre: item.titre,
-      quantite: item.quantite,
-      prix: item.prix,
-      dateDebut: item.dateDebut,
-      dateFin: item.dateFin
-    })),
+    details_panier: [
+      ...props.panier.map(item => ({
+        idBase: item.idBase,
+        typeElement: item.typeElement,
+        titre: item.titre,
+        quantite: item.quantite,
+        prix: item.prix,
+        dateDebut: item.dateDebut,
+        dateFin: item.dateFin
+      })),
+      {
+        typeElement: 'metadata',
+        parrain: nomParrain.value || null,
+        garantieCasse: garantieCasseActive.value,
+        serviceMontage: serviceMontageActif.value,
+        serviceServeurs: serviceServeursActif.value ? `${nbServeurs.value} serveurs x ${dureeServeurs.value}h` : null,
+        cautionCalculee: cautionTotale.value
+      }
+    ],
     mode_recuperation: modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`,
     frais_logistique: fraisLogistiques.value,
     total_general: totalGeneral.value,
@@ -177,10 +239,23 @@ const soumettreCommande = async () => {
   msg += `💰 *RÉCAPITULATIF*\n`;
   msg += `▫️ ${t('articles')} : ${totalArticles.value.toFixed(2)} €\n`;
   if (reductionAppliquee.value > 0) {
-    msg += `▫️ ${t('reduction')} : -${reductionAppliquee.value}%\n`;
+    msg += `▫️ ${t('reduction')} : -${reductionAppliquee.value}% ${nomParrain.value ? '(Parrain: ' + nomParrain.value + ')' : ''}\n`;
+  }
+  if (coutGarantieCasse.value > 0) {
+    msg += `▫️ Garantie Casse : +${coutGarantieCasse.value.toFixed(2)} €\n`;
+  }
+  if (serviceMontageActif.value) {
+    msg += `▫️ Service Montage : +50.00 €\n`;
+  }
+  if (serviceServeursActif.value) {
+    msg += `▫️ Service Personnel : ${nbServeurs.value} serveurs x ${dureeServeurs.value}h (+${coutServeurs.value.toFixed(2)} €)\n`;
   }
   msg += `▫️ ${t('logistic_fees')} : ${fraisLogistiques.value > 0 ? fraisLogistiques.value.toFixed(2) + ' €' : t('free')}\n`;
-  msg += `▶️ *${t('total_to_pay').toUpperCase()} : ${totalGeneral.value.toFixed(2)} €*\n\n`;
+  msg += `▶️ *${t('total_to_pay').toUpperCase()} : ${totalGeneral.value.toFixed(2)} €*\n`;
+  if (cautionTotale.value > 0) {
+    msg += `⚠️ *Caution à déposer : ${cautionTotale.value} €*\n`;
+  }
+  msg += `\n`;
 
   msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
   msg += `💬 *${currentLang.value === 'fr' ? 'Merci pour votre confiance !' : 'Marahaba wadjiri !'}*\n`;
@@ -309,6 +384,59 @@ const soumettreCommande = async () => {
             </div>
           </div>
 
+          <!-- OPTIONS & SERVICES ADDITIONNELS -->
+          <div class="section-options-additionnelles" v-if="props.panier.length > 0" style="margin-top: 24px;">
+            <label class="label-champ-premium">✨ Services & Garanties Événementielles</label>
+            
+            <div class="options-additionnelles-grille">
+              <!-- Garantie Casse -->
+              <label class="option-addon-checkbox" v-if="panierContientLocation">
+                <input type="checkbox" v-model="garantieCasseActive" />
+                <span class="addon-detail">
+                  <span class="nom">🛡️ Garantie Tranquillité Casse (+5% location)</span>
+                  <span class="cout">+{{ coutGarantieCasse.toFixed(2) }} €</span>
+                </span>
+              </label>
+
+              <!-- Montage & Livraison -->
+              <label class="option-addon-checkbox" v-if="panierContientLocation">
+                <input type="checkbox" v-model="serviceMontageActif" />
+                <span class="addon-detail">
+                  <span class="nom">⛺ Service Montage & Installation</span>
+                  <span class="cout">+{{ coutMontage.toFixed(2) }} €</span>
+                </span>
+              </label>
+
+              <!-- Serveurs -->
+              <label class="option-addon-checkbox">
+                <input type="checkbox" v-model="serviceServeursActif" />
+                <span class="addon-detail">
+                  <span class="nom">🧑‍🍳 Personnel de service (25 €/h par serveur)</span>
+                  <span class="cout">+{{ coutServeurs.toFixed(2) }} €</span>
+                </span>
+              </label>
+
+              <div class="options-serveurs-details" v-if="serviceServeursActif">
+                <div class="selecteur-qte-addon">
+                  <label>Nombre de serveurs :</label>
+                  <div class="boutons-compteur">
+                    <button @click="nbServeurs = Math.max(1, nbServeurs - 1)">−</button>
+                    <span>{{ nbServeurs }}</span>
+                    <button @click="nbServeurs++">+</button>
+                  </div>
+                </div>
+                <div class="selecteur-qte-addon">
+                  <label>Durée du service (heures) :</label>
+                  <div class="boutons-compteur">
+                    <button @click="dureeServeurs = Math.max(1, dureeServeurs - 1)">−</button>
+                    <span>{{ dureeServeurs }}</span>
+                    <button @click="dureeServeurs++">+</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- RÉCAPITULATIF FINANCIER -->
           <div class="recapitulatif-financier">
             <div class="ligne-financiere">
@@ -316,16 +444,24 @@ const soumettreCommande = async () => {
               <span>{{ totalArticles.toFixed(2) }} €</span>
             </div>
             <div class="ligne-financiere" v-if="reductionAppliquee > 0">
-              <span>{{ t('reduction') }} (-{{ reductionAppliquee }}%)</span>
+              <span>{{ t('reduction') }} (-{{ reductionAppliquee }}%) <span v-if="nomParrain" style="font-size: 0.75rem; color: var(--accent-gold-dark);">[Parrain: {{ nomParrain }}]</span></span>
               <span class="valeur-reduction">-{{ (totalArticles * (reductionAppliquee / 100)).toFixed(2) }} €</span>
             </div>
+            <div class="ligne-financiere" v-if="coutGarantieCasse > 0">
+              <span>🛡️ Garantie Tranquillité Casse</span>
+              <span>{{ coutGarantieCasse.toFixed(2) }} €</span>
+            </div>
             <div class="ligne-financiere">
-              <span>{{ t('logistic_fees') }}</span>
-              <span>{{ fraisLogistiques }} €</span>
+              <span>{{ t('logistic_fees') }} <span v-if="serviceMontageActif || serviceServeursActif" style="font-size: 0.75rem; color: var(--text-secondary);">(avec services)</span></span>
+              <span>{{ fraisLogistiques.toFixed(2) }} €</span>
             </div>
             <div class="ligne-financiere total-a-payer">
               <span>{{ t('total_to_pay') }}</span>
               <span class="valeur-total">{{ totalGeneral.toFixed(2) }} €</span>
+            </div>
+            <div class="ligne-financiere caution-recap" v-if="cautionTotale > 0" style="font-size: 0.8rem; font-style: italic; opacity: 0.85;">
+              <span>⚠️ Caution à déposer (remboursable)</span>
+              <span>{{ cautionTotale }} €</span>
             </div>
 
             <button @click="soumettreCommande" class="bouton-commander-whatsapp">
@@ -738,6 +874,85 @@ const soumettreCommande = async () => {
 .bouton-explorer-premium:hover {
   background: var(--accent-gold-light);
   transform: scale(1.05);
+}
+
+/* Services additionnels styles */
+.section-options-additionnelles {
+  margin-top: 24px;
+}
+.options-additionnelles-grille {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: 16px;
+  padding: 16px;
+}
+.option-addon-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  user-select: none;
+}
+.option-addon-checkbox input {
+  margin-top: 4px;
+  accent-color: var(--accent-green);
+  cursor: pointer;
+}
+.addon-detail {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.addon-detail .nom {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.addon-detail .cout {
+  font-weight: 700;
+  color: var(--accent-green);
+}
+.options-serveurs-details {
+  border-top: 1px dashed var(--border-subtile);
+  padding-top: 12px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.selecteur-qte-addon {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.boutons-compteur {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.boutons-compteur button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.boutons-compteur span {
+  font-weight: 700;
+  font-size: 0.85rem;
 }
 
 /* --- TRANSITIONS --- */

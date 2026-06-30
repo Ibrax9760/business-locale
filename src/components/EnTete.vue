@@ -40,6 +40,16 @@ const actionnerSuivi = () => {
   menuUtilisateurOuvert.value = false
 }
 
+const actionnerSimulator = () => {
+  router.push('/devis-simulator')
+  menuUtilisateurOuvert.value = false
+}
+
+const actionnerLookbook = () => {
+  router.push('/lookbook')
+  menuUtilisateurOuvert.value = false
+}
+
 const actionnerParametres = () => {
   emit('open-settings')
   menuUtilisateurOuvert.value = false
@@ -93,6 +103,16 @@ const actionnerDeconnexion = () => {
           <button class="menu-action" @click.stop="actionnerSuivi">
             <span style="font-size: 1.1rem; line-height: 1; margin-right: 2px;">📦</span>
             <span>Suivre ma commande</span>
+          </button>
+
+          <button class="menu-action" @click.stop="actionnerSimulator">
+            <span style="font-size: 1.1rem; line-height: 1; margin-right: 2px;">🧮</span>
+            <span>Simulateur de Budget</span>
+          </button>
+
+          <button class="menu-action" @click.stop="actionnerLookbook">
+            <span style="font-size: 1.1rem; line-height: 1; margin-right: 2px;">📸</span>
+            <span>Lookbook d'Inspiration</span>
           </button>
 
           <hr style="margin: 8px 0; border: none; border-top: 1px solid var(--border-subtile);" />

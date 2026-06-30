@@ -1,14 +1,37 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { t } from '../utils/i18n';
 
 const props = defineProps(['produit']);
 const emit = defineEmits(['ajouter-produit']);
+
+const estFavori = ref(false)
+
+onMounted(() => {
+  const list = JSON.parse(localStorage.getItem('app-wishlist') || '[]')
+  estFavori.value = list.includes(props.produit.id)
+})
+
+const basculerFavori = () => {
+  let list = JSON.parse(localStorage.getItem('app-wishlist') || '[]')
+  if (estFavori.value) {
+    list = list.filter(id => id !== props.produit.id)
+    estFavori.value = false
+  } else {
+    list.push(props.produit.id)
+    estFavori.value = true
+  }
+  localStorage.setItem('app-wishlist', JSON.stringify(list))
+  window.dispatchEvent(new CustomEvent('wishlist-updated'))
+}
 </script>
 
 <template>
-  <div class="carte-produit">
+  <div class="carte-produit" style="position: relative;">
     <div class="badge-type-gastronomie">{{ t('gastronomy_badge') }}</div>
+    <button @click="basculerFavori" class="bouton-favori-absolu" :class="{ favori: estFavori }" aria-label="Ajouter aux favoris">
+      ❤️
+    </button>
     <div class="image-wrapper">
       <img :src="produit.image_url" :alt="produit.titre" class="image-produit" />
     </div>
@@ -205,5 +228,31 @@ const emit = defineEmits(['ajouter-produit']);
 
 .bouton-ajouter:active {
   transform: translateY(0);
+}
+
+.bouton-favori-absolu {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  filter: grayscale(1);
+}
+.bouton-favori-absolu.favori {
+  filter: grayscale(0);
+  background: #ffffff;
+  transform: scale(1.1);
+  box-shadow: 0 6px 14px rgba(220, 38, 38, 0.2);
 }
 </style>

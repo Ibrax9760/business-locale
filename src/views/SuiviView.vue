@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { supabase } from '../utils/supabaseClient'
 import { t } from '../utils/i18n'
@@ -12,7 +12,56 @@ const historiqueCommandes = ref([])
 const chargement = ref(false)
 const messageRecherche = ref('')
 
-// Récupérer l'historique des IDs de commandes stockées localement
+// Avis clients refs
+const noteAvis = ref(5)
+const commentaireAvis = ref('')
+const avisSoumis = ref(false)
+
+// Canal Realtime
+let canalSuivi = null
+
+const brancherNotificationReel = (uuid) => {
+  if (canalSuivi) {
+    supabase.removeChannel(canalSuivi)
+  }
+  
+  if (typeof window !== 'undefined' && 'Notification' in window) {
+    Notification.requestPermission()
+  }
+
+  canalSuivi = supabase
+    .channel(`suivi-${uuid}`)
+    .on('postgres_changes', { 
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'commandes', 
+      filter: `id=eq.${uuid}` 
+    }, payload => {
+      if (payload.new) {
+        const ancienStatut = commandeTrouvee.value?.statut
+        const nouveauStatut = payload.new.statut
+        
+        commandeTrouvee.value = payload.new
+        
+        if (ancienStatut && ancienStatut !== nouveauStatut) {
+          alert(`🔔 Statut mis à jour : Votre commande est maintenant "${nouveauStatut}" !`)
+          if (Notification.permission === 'granted') {
+            new Notification("Ma Boutique Locale 🧺", {
+              body: `Le statut de votre commande a changé : ${nouveauStatut}`
+            })
+          }
+        }
+      }
+    })
+    .subscribe()
+}
+
+onUnmounted(() => {
+  if (canalSuivi) {
+    supabase.removeChannel(canalSuivi)
+  }
+})
+
 const chargerHistorique = async () => {
   const ids = JSON.parse(localStorage.getItem('app-commandes') || '[]')
   if (ids.length === 0) return
@@ -41,6 +90,8 @@ const rechercherCommande = async (idCible) => {
   chargement.value = true
   commandeTrouvee.value = null
   messageRecherche.value = ''
+  avisSoumis.value = false
+  commentaireAvis.value = ''
 
   try {
     const { data, error } = await supabase
@@ -54,6 +105,7 @@ const rechercherCommande = async (idCible) => {
     } else {
       commandeTrouvee.value = data
       rechercheId.value = idStr
+      brancherNotificationReel(idStr)
     }
   } catch (err) {
     messageRecherche.value = "Identifiant invalide ou erreur réseau."
@@ -63,10 +115,42 @@ const rechercherCommande = async (idCible) => {
   }
 }
 
+const soumettreAvis = async () => {
+  if (!commentaireAvis.value.trim()) {
+    alert("Veuillez saisir votre avis.")
+    return
+  }
+  try {
+    const { error } = await supabase
+      .from('avis_clients')
+      .insert([{
+        commande_id: commandeTrouvee.value.id,
+        nom_client: commandeTrouvee.value.nom_client,
+        note: noteAvis.value,
+        commentaire: commentaireAvis.value
+      }])
+    
+    if (error) throw error
+    avisSoumis.value = true
+    alert("✨ Merci pour votre avis précieux !")
+  } catch (e) {
+    console.error("Erreur d'insertion d'avis:", e.message)
+    alert("Impossible d'enregistrer l'avis pour le moment.")
+  }
+}
+
+const imprimerRecu = () => {
+  window.print()
+}
+
+// Extraire l'objet de métadonnées du détails panier
+const metadataCommande = computed(() => {
+  if (!commandeTrouvee.value?.details_panier) return null
+  return commandeTrouvee.value.details_panier.find(x => x.typeElement === 'metadata')
+})
+
 onMounted(() => {
   chargerHistorique()
-  
-  // Si un ID de commande est passé dans l'URL (ex: /suivi?id=UUID)
   if (route.query.id) {
     rechercherCommande(route.query.id)
   }
@@ -83,12 +167,11 @@ const formaterDate = (d) => {
   })
 }
 
-// Convertit les étapes de statut en un index numérique pour la frise
 const getEtapeIndex = (statut) => {
   if (statut === 'En préparation') return 2
   if (statut === 'Validée') return 3
   if (statut === 'Annulée') return -1
-  return 1 // 'En attente'
+  return 1
 }
 </script>
 
@@ -170,19 +253,28 @@ const getEtapeIndex = (statut) => {
           🚫 Cette commande a été annulée. N'hésitez pas à nous contacter sur WhatsApp en cas de question.
         </div>
 
-        <!-- RECAPITULATIF COMMANDE -->
         <div class="recap-fiche">
-          <h4>Récapitulatif des prestations</h4>
+          <div class="fiche-recap-header-imprimer" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h4 style="margin: 0;">Récapitulatif des prestations</h4>
+            <button @click="imprimerRecu" class="btn-imprimer-suivi" style="background: transparent; border: 1px solid var(--accent-gold); color: var(--accent-gold-dark); padding: 6px 14px; border-radius: 99px; font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.2s;">
+              📥 Imprimer le reçu (PDF)
+            </button>
+          </div>
+          
           <div class="fiche-client-info">
             <p><strong>Client :</strong> {{ commandeTrouvee.nom_client }}</p>
             <p><strong>Récupération :</strong> {{ commandeTrouvee.mode_recuperation }}</p>
             <p><strong>Date prévue :</strong> {{ formaterDate(commandeTrouvee.date_commande).split(' ')[0] }}</p>
+            <p v-if="metadataCommande?.parrain"><strong>Parrain :</strong> {{ metadataCommande.parrain }}</p>
+            <p v-if="metadataCommande?.garantieCasse"><strong>Garantie Casse :</strong> Active (Tranquillité)</p>
+            <p v-if="metadataCommande?.serviceMontage"><strong>Montage :</strong> Inclus</p>
+            <p v-if="metadataCommande?.serviceServeurs"><strong>Personnel :</strong> {{ metadataCommande.serviceServeurs }}</p>
           </div>
           
           <hr class="fiche-separateur" />
 
           <ul class="fiche-articles-liste">
-            <li v-for="item in commandeTrouvee.details_panier" :key="item.titre" class="fiche-article-item">
+            <li v-for="item in commandeTrouvee.details_panier.filter(x => x.typeElement !== 'metadata')" :key="item.titre" class="fiche-article-item">
               <div class="titre-bloc">
                 <span class="titre">{{ item.quantite }}x {{ item.titre }}</span>
                 <span class="dates" v-if="item.dateDebut">
@@ -197,8 +289,52 @@ const getEtapeIndex = (statut) => {
             <span>Montant total :</span>
             <span class="val">{{ commandeTrouvee.total_general.toFixed(2) }} €</span>
           </div>
+          
+          <div class="fiche-total" v-if="metadataCommande?.cautionCalculee > 0" style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary); border-top: 1px dashed var(--border-subtile); margin-top: 8px; padding-top: 8px;">
+            <span>Caution requise (remboursable) :</span>
+            <span>{{ metadataCommande.cautionCalculee }} €</span>
+          </div>
         </div>
 
+        <!-- FORMULAIRE D'AVIS CLIENT -->
+        <div v-if="commandeTrouvee.statut === 'Validée'" class="avis-section-suivi" style="margin-top: 30px; border-top: 1px solid var(--border-subtile); padding-top: 24px;">
+          <h4 style="font-family: 'Playfair Display', serif; font-size: 1.15rem; margin: 0 0 6px 0;">✨ Votre avis nous intéresse !</h4>
+          <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 16px 0;">
+            Votre prestation est terminée. Partagez votre expérience et aidez-nous à nous améliorer.
+          </p>
+          
+          <div v-if="avisSoumis" class="avis-soumis-succes" style="background: var(--accent-green-light); color: var(--accent-green); border: 1px solid var(--accent-green); border-radius: 12px; padding: 14px; text-align: center; font-weight: 600; font-size: 0.85rem;">
+            🌟 Merci ! Votre avis précieux a bien été enregistré.
+          </div>
+          <div v-else class="formulaire-avis" style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="selection-note" style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary);">Note :</span>
+              <div class="etoiles-choix" style="display: flex; gap: 4px;">
+                <button 
+                  v-for="n in 5" 
+                  :key="n" 
+                  @click="noteAvis = n" 
+                  style="background: transparent; border: none; font-size: 1.3rem; cursor: pointer; padding: 0;"
+                >
+                  {{ n <= noteAvis ? '★' : '☆' }}
+                </button>
+              </div>
+            </div>
+            
+            <div class="champ-texte-avis" style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary);">Commentaire :</label>
+              <textarea 
+                v-model="commentaireAvis" 
+                placeholder="Ex: Prestation d'exception, matériel très propre et buffet traiteur raffiné !" 
+                style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-subtile); font-family: 'Inter', sans-serif; font-size: 0.85rem; background: var(--bg-app); color: var(--text-primary); min-height: 80px; resize: vertical; outline: none;"
+              ></textarea>
+            </div>
+            
+            <button @click="soumettreAvis" class="btn-soumettre-avis" style="background: var(--accent-green); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 700; font-size: 0.85rem; cursor: pointer; align-self: flex-end; transition: opacity 0.2s;">
+              Envoyer l'avis
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- HISTORIQUE LOCAL DE COMMANDES -->
@@ -600,5 +736,28 @@ const getEtapeIndex = (statut) => {
   .etape-timeline .titre { margin-top: 0; }
   .etape-timeline .desc { margin-top: 2px; }
   .barre-recherche-suivi { flex-direction: column; }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .suivi-view, .recap-fiche, .recap-fiche * {
+    visibility: visible;
+  }
+  .recap-fiche {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+  }
+  .btn-imprimer-suivi, .boite-recherche-suivi, .header-suivi, .timeline-container, .historique-suivi, .avis-section-suivi {
+    display: none !important;
+  }
 }
 </style>

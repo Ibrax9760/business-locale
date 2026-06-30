@@ -12,6 +12,16 @@ const produits = ref([]);
 const equipements = ref([]);
 const recherche = ref('');
 const pageActive = ref('tout');
+const avisClients = ref([]);
+
+const dateFiltreGlobal = ref('');
+const dateMin = computed(() => {
+  const today = new Date();
+  const yyyy = today.getFullYear();
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const dd = String(today.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+});
 
 const chargement = ref(true);
 
@@ -64,6 +74,16 @@ const chargerDonnees = async () => {
         dates_indisponibles: datesIndisp
       };
     }) : [];
+
+    // Récupérer les avis clients de manière sécurisée
+    try {
+      const { data: resAvis, error: errAvis } = await supabase.from('avis_clients').select('*').order('created_at', { ascending: false }).limit(6);
+      if (!errAvis) {
+        avisClients.value = resAvis || [];
+      }
+    } catch (e) {
+      console.warn("Table avis_clients non disponible :", e.message);
+    }
   } catch (err) {
     console.error("Erreur de chargement :", err);
   } finally {
@@ -71,10 +91,25 @@ const chargerDonnees = async () => {
   }
 };
 
-onMounted(chargerDonnees);
+const listeIdsFavoris = ref(JSON.parse(localStorage.getItem('app-wishlist') || '[]'));
+const nbFavoris = computed(() => listeIdsFavoris.value.length);
 
-const produitsFiltrés = computed(() => pageActive.value === 'location' ? [] : produits.value.filter(p => p.titre.toLowerCase().includes(recherche.value.toLowerCase())));
-const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? [] : equipements.value.filter(e => e.titre.toLowerCase().includes(recherche.value.toLowerCase())));
+const produitsFavoris = computed(() => {
+  return produits.value.filter(p => listeIdsFavoris.value.includes(p.id));
+});
+const equipementsFavoris = computed(() => {
+  return equipements.value.filter(e => listeIdsFavoris.value.includes(e.id));
+});
+
+onMounted(() => {
+  chargerDonnees();
+  window.addEventListener('wishlist-updated', () => {
+    listeIdsFavoris.value = JSON.parse(localStorage.getItem('app-wishlist') || '[]');
+  });
+});
+
+const produitsFiltrés = computed(() => (pageActive.value === 'location' || pageActive.value === 'favoris') ? [] : produits.value.filter(p => p.titre.toLowerCase().includes(recherche.value.toLowerCase())));
+const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' || pageActive.value === 'favoris') ? [] : equipements.value.filter(e => e.titre.toLowerCase().includes(recherche.value.toLowerCase())));
 </script>
 
 <template>
@@ -103,6 +138,16 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
         <button class="chip-premium" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">{{ t('filter_all') }}</button>
         <button class="chip-premium" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">{{ t('filter_gastronomy') }}</button>
         <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">{{ t('filter_rental') }}</button>
+        <button class="chip-premium" :class="{ actif: pageActive === 'favoris' }" @click="pageActive = 'favoris'">Favoris ❤️ ({{ nbFavoris }})</button>
+      </div>
+
+      <!-- Filtre Date Global -->
+      <div class="verificateur-date-global">
+        <label>📅 Vérifier la disponibilité des équipements pour votre date :</label>
+        <div class="input-date-global-wrapper">
+          <input type="date" v-model="dateFiltreGlobal" :min="dateMin" class="input-date-global" />
+          <button v-if="dateFiltreGlobal" @click="dateFiltreGlobal = ''" class="btn-effacer-date-global" title="Effacer le filtre">✖</button>
+        </div>
       </div>
     </section>
 
@@ -165,8 +210,58 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
           v-for="equipement in equipementsFiltrés" 
           :key="equipement.id" 
           :equipement="equipement"
+          :dateFiltreGlobal="dateFiltreGlobal"
           @ajouter-equipement="emit('ajouter-au-panier', $event, false)"
         />
+      </div>
+    </section>
+
+    <!-- SECTION FAVORIS -->
+    <section v-if="!chargement && pageActive === 'favoris'" class="section-catalogue">
+      <div class="section-header">
+        <h2 class="titre-section">❤️ Vos Coups de Cœur</h2>
+        <p class="soustitre-section">Retrouvez les produits et matériels que vous avez aimés pour votre événement.</p>
+      </div>
+      
+      <div v-if="produitsFavoris.length === 0 && equipementsFavoris.length === 0" class="aucun-produit-favori" style="text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic; font-size: 0.9rem;">
+        Aucun coup de cœur pour le moment. Cliquez sur le cœur ❤️ des fiches pour en ajouter !
+      </div>
+      
+      <div class="grille-produits" v-else>
+        <CarteProduit 
+          v-for="produit in produitsFavoris" 
+          :key="produit.id" 
+          :produit="produit"
+          @ajouter-produit="emit('ajouter-au-panier', $event, true)"
+        />
+        <CarteEquipement 
+          v-for="equipement in equipementsFavoris" 
+          :key="equipement.id" 
+          :equipement="equipement"
+          :dateFiltreGlobal="dateFiltreGlobal"
+          @ajouter-equipement="emit('ajouter-au-panier', $event, false)"
+        />
+      </div>
+    </section>
+
+    <!-- SECTION AVIS CLIENTS -->
+    <section v-if="!chargement && avisClients.length > 0" class="section-catalogue section-avis-clients">
+      <div class="section-header">
+        <h2 class="titre-section">✨ Témoignages & Avis Clients</h2>
+        <p class="soustitre-section">Ce que pensent nos clients de nos créations prestigieuses et de nos équipements.</p>
+      </div>
+
+      <div class="carousel-avis-container">
+        <div class="carte-avis" v-for="avis in avisClients" :key="avis.id">
+          <div class="note-etoiles">
+            <span v-for="n in 5" :key="n" class="etoile">{{ n <= avis.note ? '★' : '☆' }}</span>
+          </div>
+          <p class="commentaire">« {{ avis.commentaire }} »</p>
+          <div class="auteur">
+            <strong>{{ avis.nom_client }}</strong>
+            <span class="badge-verifie">✔ Client Vérifié</span>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -381,5 +476,126 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
   .bouton-banniere-builder {
     text-align: center;
   }
+}
+
+/* Vérificateur de Date Global */
+.verificateur-date-global {
+  margin-top: 18px;
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  padding: 14px 20px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: var(--shadow-douce);
+  flex-wrap: wrap;
+}
+.verificateur-date-global label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.input-date-global-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.input-date-global {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+}
+.btn-effacer-date-global {
+  background: transparent;
+  border: none;
+  color: #c62828;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+@media (max-width: 600px) {
+  .verificateur-date-global {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    text-align: center;
+  }
+  .input-date-global-wrapper {
+    justify-content: center;
+  }
+}
+
+/* Section Avis Clients */
+.section-avis-clients {
+  margin-top: 56px;
+  margin-bottom: 56px;
+}
+.carousel-avis-container {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 10px 4px 24px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-gold) transparent;
+}
+.carte-avis {
+  flex: 0 0 300px;
+  scroll-snap-align: start;
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--shadow-douce);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.3s;
+}
+.carte-avis:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-gold);
+  box-shadow: var(--shadow-premium);
+}
+.note-etoiles {
+  color: #f59e0b;
+  font-size: 1.1rem;
+}
+.commentaire {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  font-style: italic;
+  margin: 0;
+  flex-grow: 1;
+}
+.auteur {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-subtile);
+  padding-top: 12px;
+  margin-top: auto;
+}
+.auteur strong {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+.badge-verifie {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: var(--accent-green-light);
+  padding: 2px 8px;
+  border-radius: 99px;
 }
 </style>
