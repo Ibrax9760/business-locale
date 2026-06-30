@@ -39,7 +39,8 @@ const route = useRoute()
 const props = defineProps({
   utilisateur: Object,
   profilClient: Object,
-  panierLength: Number
+  panierLength: Number,
+  secoussePanier: Boolean
 })
 
 const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth', 'open-settings'])
@@ -167,7 +168,7 @@ const actionnerDeconnexion = () => {
     </div>
 
     <div class="nav-zone nav-droite zone-desktop">
-      <button class="bouton-icone panier-btn" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
+      <button :class="['bouton-icone', 'panier-btn', { 'secousse-bounce': props.secoussePanier }]" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="9" cy="21" r="1"></circle>
           <circle cx="20" cy="21" r="1"></circle>
@@ -258,7 +259,7 @@ const actionnerDeconnexion = () => {
       </transition>
     </div>
 
-    <button class="bouton-icone-mobile" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
+    <button :class="['bouton-icone-mobile', { 'secousse-bounce': props.secoussePanier }]" @click="$emit('open-panier')" aria-label="Ouvrir le panier">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="9" cy="21" r="1"></circle>
         <circle cx="20" cy="21" r="1"></circle>
@@ -523,5 +524,16 @@ const actionnerDeconnexion = () => {
   .nav-centre { flex: 1; } 
   .navbar-premium { padding: 16px 20px; } 
   .titre-marque { font-size: 1.1rem; } 
+}
+
+/* Animation de rebond du panier */
+.secousse-bounce {
+  animation: bounce-micro 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes bounce-micro {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.3); }
+  65% { transform: scale(0.9); }
+  100% { transform: scale(1); }
 }
 </style>

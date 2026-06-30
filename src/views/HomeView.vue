@@ -13,11 +13,20 @@ const equipements = ref([]);
 const recherche = ref('');
 const pageActive = ref('tout');
 
+const chargement = ref(true);
+
 const chargerDonnees = async () => {
-  const { data: p } = await supabase.from('produits_gastronomie').select('*');
-  produits.value = p.map(x => ({ ...x, type: 'gastronomie', varianteChoisie: x.variantes[0] }));
-  const { data: e } = await supabase.from('equipements_location').select('*');
-  equipements.value = e.map(x => ({ ...x, typeElement: 'location', prix: x.prix_journalier, nom: x.titre }));
+  chargement.value = true;
+  try {
+    const { data: p } = await supabase.from('produits_gastronomie').select('*');
+    produits.value = p ? p.map(x => ({ ...x, type: 'gastronomie', varianteChoisie: x.variantes[0] })) : [];
+    const { data: e } = await supabase.from('equipements_location').select('*');
+    equipements.value = e ? e.map(x => ({ ...x, typeElement: 'location', prix: x.prix_journalier, nom: x.titre })) : [];
+  } catch (err) {
+    console.error("Erreur de chargement :", err);
+  } finally {
+    chargement.value = false;
+  }
 };
 
 onMounted(chargerDonnees);
@@ -55,8 +64,27 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
       </div>
     </section>
 
+    <!-- SQUELETTE DE CHARGEMENT PREMIUM -->
+    <section v-if="chargement" class="section-catalogue">
+      <div class="section-header">
+        <div class="skeleton-title pulsing"></div>
+        <div class="skeleton-subtitle pulsing"></div>
+      </div>
+      <div class="grille-produits">
+        <div v-for="n in 3" :key="n" class="carte-skeleton-premium">
+          <div class="skeleton-image pulsing"></div>
+          <div class="skeleton-text-title pulsing"></div>
+          <div class="skeleton-text-body pulsing"></div>
+          <div class="skeleton-bas">
+            <div class="skeleton-prix pulsing"></div>
+            <div class="skeleton-btn pulsing"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SECTION GASTRONOMIE -->
-    <section v-if="produitsFiltrés.length > 0" class="section-catalogue">
+    <section v-else-if="produitsFiltrés.length > 0" class="section-catalogue">
       <div class="section-header">
         <h2 class="titre-section">{{ t('sec_gastronomy') }}</h2>
         <p class="soustitre-section">{{ t('sec_gastronomy_sub') }}</p>
@@ -73,7 +101,7 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
     </section>
 
     <!-- SECTION LOCATION -->
-    <section v-if="equipementsFiltrés.length > 0" class="section-catalogue">
+    <section v-if="!chargement && equipementsFiltrés.length > 0" class="section-catalogue">
       <div class="section-header">
         <h2 class="titre-section">{{ t('sec_rental') }}</h2>
         <p class="soustitre-section">{{ t('sec_rental_sub') }}</p>
@@ -173,5 +201,75 @@ const equipementsFiltrés = computed(() => pageActive.value === 'gastronomie' ? 
   .titre-section {
     font-size: 1.5rem;
   }
+}
+
+/* --- CLASSE ET ANIMATIONS SQUELETTE PREMIUM --- */
+.carte-skeleton-premium {
+  background: var(--bg-carte);
+  border-radius: var(--radius-carte, 24px);
+  padding: 24px;
+  border: 1px solid var(--border-subtile);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.skeleton-image {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 16px;
+  background: var(--accent-gold-light);
+}
+.skeleton-title {
+  width: 200px;
+  height: 28px;
+  background: var(--accent-gold-light);
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.skeleton-subtitle {
+  width: 320px;
+  height: 16px;
+  background: var(--accent-gold-light);
+  border-radius: 4px;
+}
+.skeleton-text-title {
+  width: 60%;
+  height: 22px;
+  background: var(--accent-gold-light);
+  border-radius: 6px;
+}
+.skeleton-text-body {
+  width: 100%;
+  height: 48px;
+  background: var(--accent-gold-light);
+  border-radius: 8px;
+}
+.skeleton-bas {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtile);
+}
+.skeleton-prix {
+  width: 70px;
+  height: 24px;
+  background: var(--accent-gold-light);
+  border-radius: 6px;
+}
+.skeleton-btn {
+  width: 110px;
+  height: 42px;
+  background: var(--accent-gold-light);
+  border-radius: 12px;
+}
+.pulsing {
+  animation: pulse-animation 1.5s infinite ease-in-out;
+}
+@keyframes pulse-animation {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
 }
 </style>

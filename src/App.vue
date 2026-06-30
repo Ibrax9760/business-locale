@@ -10,6 +10,7 @@ const utilisateur = ref(null);
 const profilClient = ref(null);
 const panier = ref([]);
 const panierOuvert = ref(false);
+const declencherSecoussePanier = ref(false);
 const notification = ref({ active: false, message: '' });
 
 // --- ÉTATS PARAMÈTRES (CARTE BLANCHE) ---
@@ -77,6 +78,10 @@ const ajouterAuPanier = (article, estProduit = false) => {
   });
   }
   afficherNotification(`✅ ${titreComplet} ${t('add_to_cart')}`);
+  declencherSecoussePanier.value = true;
+  setTimeout(() => {
+    declencherSecoussePanier.value = false;
+  }, 400);
 };
 
 const executerCommandeWhatsApp = (payload) => {
@@ -382,6 +387,7 @@ onMounted(async () => {
       :utilisateur="utilisateur" 
       :profilClient="profilClient"
       :panierLength="panier.length"
+      :secoussePanier="declencherSecoussePanier"
       @open-panier="panierOuvert = true"
       @deconnexion="executerDeconnexion"
       @open-auth="afficherFormulaireAuth = true" 
