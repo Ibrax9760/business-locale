@@ -32,6 +32,15 @@ watch(themeActuel, (nouveauTheme) => {
   document.body.className = nouveauTheme;
 }, { immediate: true });
 
+// --- EMPÊCHER LE SCROLL DE L'ARRIÈRE-PLAN LORSQUE LE PANIER EST OUVERT ---
+watch(panierOuvert, (ouvert) => {
+  if (ouvert) {
+    document.body.classList.add('overflow-locked');
+  } else {
+    document.body.classList.remove('overflow-locked');
+  }
+});
+
 // --- FONCTIONS DE BASE ---
 const afficherNotification = (texte) => {
   notification.value.message = texte;
@@ -466,8 +475,20 @@ html, body, #app, main {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+body.overflow-locked {
+  overflow: hidden !important;
+  height: 100vh;
+  width: 100%;
+}
+
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, .btn-icone, .chip-premium, .pilule-format, .bouton-ajouter, .bouton-whatsapp, .radio-cache {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 main {
@@ -475,6 +496,12 @@ main {
   padding: 24px 20px 60px;
   max-width: 1300px;
   margin: 0 auto;
+}
+
+@media (max-width: 600px) {
+  main {
+    padding-bottom: 120px;
+  }
 }
 
 /* --- RECHERCHE & FILTRES --- */
@@ -648,6 +675,18 @@ main {
 }
 .notification.visible { transform: translateX(-50%) translateY(0); }
 .icone-notif { font-size: 1.1rem; }
+
+@media (max-width: 600px) {
+  .notification {
+    bottom: auto;
+    top: 24px;
+    transform: translateX(-50%) translateY(-140px);
+    box-shadow: 0 10px 25px rgba(38, 70, 60, 0.25);
+  }
+  .notification.visible {
+    transform: translateX(-50%) translateY(0);
+  }
+}
 
 /* --- COMPOSANTS PARAMÈTRES (modal-settings) --- */
 .modal-settings {

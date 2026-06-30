@@ -314,4 +314,11 @@ const ajouterSiValide = () => {
 .bouton-ajouter:active:not(:disabled) {
   transform: translateY(0);
 }
+
+@media (max-width: 420px) {
+  .selecteur-dates-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
 </style>
