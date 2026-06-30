@@ -10,7 +10,7 @@ const emit = defineEmits(['ajouter-produit']);
   <div class="carte-produit">
     <div class="badge-type-gastronomie">{{ t('gastronomy_badge') }}</div>
     <div class="image-wrapper">
-      <img :src="produit.image_url" :alt="produit.titre" class="image-produit" loading="lazy" />
+      <img :src="produit.image_url" :alt="produit.titre" class="image-produit" />
     </div>
     <h3>{{ produit.titre }}</h3>
     <p class="description">{{ produit.description }}</p>
