@@ -388,9 +388,9 @@ const actionnerDeconnexion = () => {
 
 /* Interface Mobile & Tablette - Rangement propre */
 @media (max-width: 768px) { 
-  .navbar-premium { padding: 16px 20px; } 
-  .titre-marque { font-size: 1.15rem; gap: 8px; } 
-  .icone-panier-mignon { font-size: 1.25rem; }
+  .navbar-premium { padding: 12px 16px; } 
+  .titre-marque { font-size: 0.95rem; gap: 6px; letter-spacing: 1px; } 
+  .icone-panier-mignon { font-size: 1.1rem; }
   
   /* Masquer les textes superflus */
   .nom-utilisateur, .texte-retour { 
@@ -399,14 +399,22 @@ const actionnerDeconnexion = () => {
   
   /* Arrondir le bouton de retour pour mobile (style icône) */
   .bouton-retour {
-    padding: 10px;
+    padding: 8px;
     border-radius: 50%;
+  }
+  .bouton-retour svg {
+    width: 18px !important;
+    height: 18px !important;
   }
 
   /* Compacter le bouton de profil */
   .profil-btn {
-    padding: 10px;
+    padding: 8px;
     border-radius: 50%;
+  }
+  .profil-btn svg {
+    width: 18px !important;
+    height: 18px !important;
   }
 
   /* Adapter la position du FAB Panier sur mobile */
