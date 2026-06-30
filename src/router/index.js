@@ -67,12 +67,12 @@ router.beforeEach(async (to, from) => {
         .eq('id', session.user.id)
         .single()
 
-      if (to.path === '/admin' && profile?.role !== 'admin') {
+      if (to.path === '/admin' && profile?.role !== 'super_admin') {
         alert("Accès refusé : Rôle administrateur requis.")
         return '/'
       }
       
-      if (to.path === '/vendeur' && !['vendeur', 'admin'].includes(profile?.role)) {
+      if (to.path === '/vendeur' && !['vendeur', 'super_admin'].includes(profile?.role)) {
         alert("Accès refusé : Rôle vendeur ou administrateur requis.")
         return '/'
       }
