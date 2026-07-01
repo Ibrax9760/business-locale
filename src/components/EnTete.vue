@@ -545,9 +545,20 @@ const actionnerDeconnexion = () => {
 
 /* Interface Mobile & Tablette - Rangement propre */
 @media (max-width: 768px) { 
-  .navbar-premium { padding: 12px 16px; } 
+  .navbar-premium { padding: 12px 10px; } 
   .titre-marque { font-size: 0.95rem; gap: 6px; letter-spacing: 1px; } 
   .icone-panier-mignon { font-size: 1.1rem; }
+  
+  /* Ajustement switcher de mode sur mobile */
+  .sliding-toggle-container {
+    max-width: 100%;
+    width: 100%;
+  }
+  .toggle-btn {
+    padding: 8px 6px;
+    font-size: 0.76rem;
+    letter-spacing: -0.2px;
+  }
   
   /* Masquer les textes superflus */
   .nom-utilisateur, .texte-retour { 
@@ -627,5 +638,13 @@ const actionnerDeconnexion = () => {
   35% { transform: scale(1.3); }
   65% { transform: scale(0.9); }
   100% { transform: scale(1); }
+}
+
+@media (max-width: 375px) {
+  .toggle-btn {
+    font-size: 0.68rem;
+    padding: 8px 4px;
+    letter-spacing: -0.3px;
+  }
 }
 </style>

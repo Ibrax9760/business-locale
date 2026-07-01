@@ -605,6 +605,11 @@ body.theme-pure-white {
   --border-subtile: rgba(100, 116, 139, 0.15);
 }
 
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 html, body, #app, main {
   background-color: var(--bg-app);
   color: var(--text-primary);
@@ -687,6 +692,7 @@ main {
 .filtres-scrollables {
   display: flex; gap: 12px; overflow-x: auto; padding: 4px 4px 10px 4px;
   scrollbar-width: none; -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
 }
 .filtres-scrollables::-webkit-scrollbar { display: none; }
 
@@ -697,6 +703,7 @@ main {
   font-family: 'Inter', sans-serif; font-size: 0.9rem;
   box-shadow: var(--shadow-douce);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
 }
 .chip-premium:hover {
   transform: translateY(-2px);
