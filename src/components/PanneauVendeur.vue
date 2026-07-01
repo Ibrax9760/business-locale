@@ -214,7 +214,7 @@ const ouvrirModalAjout = () => { resetVendeurForm(); modalOuverte.value = true }
 const fermerModal = () => { modalOuverte.value = false; resetVendeurForm() }
 const resetVendeurForm = () => {
   modeEdition.value = false; articleEnEdition.value = null; typeArticleEnEdition.value = 'gastronomie'; imageSource.value = 'web'
-  nouvelArticle.value = { type: 'gastronomie', titre: '', description: '', prix: '', formatType: 'unique', variante_nom: formatOptions[0], prixParFormat: { 'Format Petit': '', 'Format Moyen': '', 'Format Grand': '' }, image_url: '', categorie: 'Plat' }
+  nouvelArticle.value = { type: 'gastronomie', titre: '', description: '', prix: '', formatType: 'unique', variante_nom: formatOptions[0], prixParFormat: { 'Format Petit': '', 'Format Moyen': '', 'Format Grand': '' }, image_url: '', categorie: 'Plat', est_evenement: false }
 }
 
 const demarrerEdition = (article, type) => {
@@ -231,7 +231,8 @@ const demarrerEdition = (article, type) => {
     formatType: isModulable ? 'modulable' : 'unique',
     variante_nom: type === 'gastronomie' && article.variantes?.[0] ? article.variantes[0].nom : formatOptions[0],
     prixParFormat, image_url: article.image_url || '',
-    categorie: article.categorie || 'Plat'
+    categorie: article.categorie || 'Plat',
+    est_evenement: article.est_evenement || false
   }
   modalOuverte.value = true
 }
@@ -258,14 +259,14 @@ const ajouterArticleVendeur = async () => {
   try {
     if (modeEdition.value && articleEnEdition.value) {
       if (typeArticleEnEdition.value === 'gastronomie') {
-        await supabase.from('produits_gastronomie').update({ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), categorie: nouvelArticle.value.categorie }).eq('id', articleEnEdition.value.id)
+        await supabase.from('produits_gastronomie').update({ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), categorie: nouvelArticle.value.categorie, est_evenement: nouvelArticle.value.est_evenement }).eq('id', articleEnEdition.value.id)
       } else {
         await supabase.from('equipements_location').update({ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, prix_journalier: parseFloat(nouvelArticle.value.prix), image_url: imageFinale }).eq('id', articleEnEdition.value.id)
       }
       emit('afficher-notification', `✏️ Modifié`)
     } else {
       if (isProduit) {
-        await supabase.from('produits_gastronomie').insert([{ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), disponible: true, categorie: nouvelArticle.value.categorie }])
+        await supabase.from('produits_gastronomie').insert([{ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, image_url: imageFinale, variantes: buildVariantes(), disponible: true, categorie: nouvelArticle.value.categorie, est_evenement: nouvelArticle.value.est_evenement }])
       } else {
         await supabase.from('equipements_location').insert([{ titre: nouvelArticle.value.titre, description: nouvelArticle.value.description, prix_journalier: parseFloat(nouvelArticle.value.prix), montant_caution: 0, image_url: imageFinale }])
       }
@@ -376,6 +377,13 @@ const ajouterArticleVendeur = async () => {
                 <option value="Plat">Plat principal</option>
                 <option value="Dessert">Dessert</option>
                 <option value="Boisson">Boisson</option>
+              </select>
+            </div>
+            <div class="groupe-champ">
+              <label>Type d'expérience</label>
+              <select v-model="nouvelArticle.est_evenement">
+                <option :value="false">Boutique Traiteur standard</option>
+                <option :value="true">Grand Événementiel de fête</option>
               </select>
             </div>
           </div>
