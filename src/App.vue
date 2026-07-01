@@ -314,16 +314,98 @@ const executerMiseAJourMotDePasse = async () => {
   }
 };
 
+// --- IMPORTATION DES OUTILS INDEXEDDB & OFFLINE ---
+import { setItemOffline, getAllItemsOffline, deleteItemOffline, clearStoreOffline } from './utils/offlineDb';
+
+// --- SYNCHRONISATION DES COMMANDES EN ATTENTE (OFFLINE BACKGROUND SYNC) ---
+const traiterCommandesEnAttenteSync = async () => {
+  if (!navigator.onLine) return;
+  const queue = await getAllItemsOffline('syncQueue');
+  if (queue.length === 0) return;
+  
+  console.log(`📡 Connexion rétablie ! Traitement de ${queue.length} commande(s) hors-ligne...`);
+  for (const cmd of queue) {
+    try {
+      const { id, queued_at, ...payloadDb } = cmd;
+      
+      const { data, error } = await supabase
+        .from('commandes')
+        .insert([payloadDb])
+        .select();
+        
+      if (error) throw error;
+      
+      // Réserver les équipements
+      const equipements = payloadDb.details_panier.filter(item => item.typeElement === 'location');
+      for (const eq of equipements) {
+        if (eq.idBase && eq.dateDebut && eq.dateFin) {
+          await supabase.from('reservations_equipements').insert([{
+            equipement_id: eq.idBase,
+            date_debut: eq.dateDebut,
+            date_fin: eq.dateFin
+          }]);
+        }
+      }
+      
+      // Retirer du stockage local
+      await deleteItemOffline('syncQueue', id);
+    } catch (err) {
+      console.error("Échec de synchronisation d'une commande :", err.message);
+    }
+  }
+  
+  afficherNotification("🔄 Commandes hors-ligne synchronisées avec succès !");
+};
+
+// --- RECONSTITUTION D'UN PANIER PARTAGÉ VIA URL ---
+const reconstituerPanierPartage = async (partageId) => {
+  try {
+    const { data, error } = await supabase
+      .from('paniers_partages')
+      .select('panier_data')
+      .eq('id', partageId)
+      .single();
+      
+    if (error || !data) throw error || new Error("Panier partagé introuvable ou expiré.");
+    
+    panier.value = data.panier_data;
+    afficherNotification("✨ Panier partagé chargé avec succès !");
+    
+    // Nettoyage de l'URL query param de partage
+    const url = new URL(window.location.href);
+    url.searchParams.delete('partage');
+    window.history.replaceState({}, '', url.pathname + url.search);
+  } catch (err) {
+    console.error("Échec de reconstitution du panier partagé :", err.message);
+    afficherNotification("⚠️ Échec du chargement du panier partagé.");
+  }
+};
+
+// --- SAUVEGARDE RÉACTIVE DU PANIER DANS INDEXEDDB ---
+watch(panier, async (nouveauPanier) => {
+  try {
+    await clearStoreOffline('panier');
+    for (const item of nouveauPanier) {
+      await setItemOffline('panier', item);
+    }
+  } catch (err) {
+    console.error("Erreur d'écriture du panier dans IndexedDB :", err);
+  }
+}, { deep: true });
+
 // --- INITIALISATION DU COMPOSANT ---
 onMounted(async () => {
-  const { data: { session: s } } = await supabase.auth.getSession();
+  // Enregistrer l'écouteur online
+  window.addEventListener('online', traiterCommandesEnAttenteSync);
   
+  // 1. Authentification
+  const { data: { session: s } } = await supabase.auth.getSession();
   if (s?.user) { 
     utilisateur.value = s.user; 
     await recupererProfil(s.user.id);
   }
 
-  // Écouter les changements d'état d'authentification
+  // 2. Écouter les changements d'état d'authentification
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN') {
       if (session?.user) {
@@ -338,6 +420,29 @@ onMounted(async () => {
       afficherFormulaireAuth.value = true;
     }
   });
+
+  // 3. Charger le panier sauvegardé localement en hors-ligne si besoin
+  try {
+    const panierSauvegarde = await getAllItemsOffline('panier');
+    if (panierSauvegarde && panierSauvegarde.length > 0 && panier.value.length === 0) {
+      panier.value = panierSauvegarde;
+      console.log("🎒 Panier hors-ligne restauré via IndexedDB.");
+    }
+  } catch (e) {
+    console.error(e);
+  }
+
+  // 4. Charger un panier partagé si présent dans l'URL (?partage=UUID)
+  const urlParams = new URLSearchParams(window.location.search);
+  const partageId = urlParams.get('partage');
+  if (partageId) {
+    await reconstituerPanierPartage(partageId);
+  }
+
+  // 5. Exécuter un traitement au cas où il y aurait des commandes en attente
+  if (navigator.onLine) {
+    await traiterCommandesEnAttenteSync();
+  }
 });
 </script>
 

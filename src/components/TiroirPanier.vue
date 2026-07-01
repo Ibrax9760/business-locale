@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { supabase } from '../utils/supabaseClient'
 import { t, currentLang } from '../utils/i18n'
 import { useUIStore } from '../stores/ui'
+import { queueRequestForSync } from '../utils/offlineDb'
 
 const props = defineProps({
   panier: Array,
@@ -173,6 +174,10 @@ const soumettreCommande = async () => {
   }
 
   const dateFinale = uiStore.estModeStandard ? dateSouhaitee.value : dateEvenement.value;
+  const total = totalGeneral.value;
+  const acompte = uiStore.estModeStandard ? total : (total * 0.30);
+  const solde = uiStore.estModeStandard ? 0 : (total * 0.70);
+  const statutPay = uiStore.estModeStandard ? 'en_attente_paiement' : 'en_attente_acompte';
 
   // 1. Sauvegarde en base de données via Supabase
   const payloadDb = {
@@ -209,9 +214,21 @@ const soumettreCommande = async () => {
       ? (modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`)
       : `Événement (Livraison: ${adresseEvenement.value})`,
     frais_logistique: fraisLogistiques.value,
-    total_general: totalGeneral.value,
+    total_general: total,
+    montant_acompte: acompte,
+    solde_restant: solde,
+    statut_paiement: statutPay,
     date_commande: dateFinale,
     statut: 'En attente'
+  }
+
+  // --- RÉSILIENCE HORS-LIGNE (PWA SYNCHRONIZATION QUEUE) ---
+  if (!navigator.onLine) {
+    await queueRequestForSync(payloadDb);
+    alert("📨 Votre appareil est hors-ligne. Votre commande a été sauvegardée localement et sera transmise automatiquement à Mayotte Traiteur dès le rétablissement de votre réseau !");
+    emit('update-panier', []);
+    emit('close-panier');
+    return;
   }
 
   const { data, error } = await supabase
@@ -252,6 +269,15 @@ const soumettreCommande = async () => {
         console.error("Erreur lors du blocage des dates pour l'équipement :", errRes.message);
       }
     }
+  }
+
+  // --- DÉCLENCHEMENT SÉCURISÉ DU PAIEMENT STRIPE (ACOMPTE 30% OU TOTAL 100%) ---
+  try {
+    const { executerPaiementCheckout } = await import('../utils/stripe');
+    await executerPaiementCheckout(data[0].id, acompte, uiStore.modeActuel);
+    alert(uiStore.estModeStandard ? "💳 Paiement de 100% validé !" : "🏰 Acompte de 30% validé par Stripe ! Votre demande de devis a été soumise.");
+  } catch (stripeErr) {
+    console.error("Échec de prélèvement Stripe :", stripeErr.message);
   }
 
   // 2. Génération du message WhatsApp (Mise en page Premium & Emojis)
@@ -328,6 +354,50 @@ const soumettreCommande = async () => {
 
   emit('commander-whatsapp', { message: msg })
 }
+
+// --- SHARABLE CART LINK & WEB PUSH ---
+const partageEnCours = ref(false)
+const partagerProjetDevis = async () => {
+  if (props.panier.length === 0) return
+  partageEnCours.value = true
+  try {
+    const { data, error } = await supabase
+      .from('paniers_partages')
+      .insert([{
+        panier_data: props.panier
+      }])
+      .select()
+      .single()
+
+    if (error || !data) throw error || new Error("Erreur de sauvegarde de panier partagé")
+
+    const shareLink = `${window.location.origin}${window.location.pathname}?partage=${data.id}`
+    await navigator.clipboard.writeText(shareLink)
+    alert("✨ Projet de panier collaboratif copié dans le presse-papiers ! Transmettez ce lien URL à votre collaborateur.")
+  } catch (err) {
+    console.error("Erreur lors de la génération du lien collaboratif :", err)
+    alert("⚠️ Échec du partage du panier.")
+  } finally {
+    partageEnCours.value = false
+  }
+}
+
+const gererChangementAbonnementPush = async (event) => {
+  if (event.target.checked) {
+    try {
+      const { souscrireAuxNotificationsPush } = await import('../utils/webPush')
+      const sub = await souscrireAuxNotificationsPush(props.utilisateur ? props.utilisateur.id : null)
+      if (sub) {
+        alert("🔔 Abonnement push activé ! Vous recevrez des alertes de statut en temps réel.");
+      } else {
+        event.target.checked = false
+      }
+    } catch (e) {
+      console.error(e)
+      event.target.checked = false
+    }
+  }
+}
 </script>
 
 <template>
@@ -362,6 +432,16 @@ const soumettreCommande = async () => {
         </div>
 
         <div v-else class="panier-rempli-scroll">
+          <!-- BOUTON DE PARTAGE DU PROJET DE DEVIS -->
+          <button 
+            v-if="!uiStore.estModeStandard" 
+            @click="partagerProjetDevis" 
+            class="bouton-partager-panier"
+            :disabled="partageEnCours"
+          >
+            🔗 {{ partageEnCours ? 'Génération du lien...' : 'Partager ce projet de devis' }}
+          </button>
+
           <ul class="liste-panier">
             <li v-for="item in props.panier" :key="item.idUnique" class="item-panier">
               <div class="details-item">
@@ -527,6 +607,16 @@ const soumettreCommande = async () => {
             </div>
           </div>
 
+          <!-- SOUSCRIPTION AUX ALERTS DE SUIVI PUSH -->
+          <div class="section-push-premium" v-if="props.utilisateur" style="margin-top: 24px; padding: 0 4px;">
+            <label class="option-addon-checkbox" style="font-size: 0.82rem;">
+              <input type="checkbox" @change="gererChangementAbonnementPush($event)" />
+              <span class="addon-detail">
+                <span class="nom">🔔 M'abonner aux alertes de statut par notification push</span>
+              </span>
+            </label>
+          </div>
+
           <!-- OPTIONS & SERVICES ADDITIONNELS -->
           <div class="section-options-additionnelles" v-if="props.panier.length > 0" style="margin-top: 24px;">
             <label class="label-champ-premium">✨ Services & Garanties Événementielles</label>
@@ -598,10 +688,25 @@ const soumettreCommande = async () => {
               <span>{{ t('logistic_fees') }} <span v-if="serviceMontageActif || serviceServeursActif" style="font-size: 0.75rem; color: var(--text-secondary);">(avec services)</span></span>
               <span>{{ fraisLogistiques.toFixed(2) }} €</span>
             </div>
-            <div class="ligne-financiere total-a-payer">
+            <!-- DÉCOUPE DES RÈGLEMENTS DEVIS (STANDARD 100% VS ÉVÉNEMENT 30%) -->
+            <div class="ligne-financiere total-a-payer" v-if="uiStore.estModeStandard">
               <span>{{ t('total_to_pay') }}</span>
               <span class="valeur-total">{{ totalGeneral.toFixed(2) }} €</span>
             </div>
+            <template v-else>
+              <div class="ligne-financiere total-a-payer">
+                <span>Total Estimé du Projet</span>
+                <span class="valeur-total">{{ totalGeneral.toFixed(2) }} €</span>
+              </div>
+              <div class="ligne-financiere acompte-fractionne" style="color: var(--accent-gold-dark); font-weight: 700; border-top: 1px dashed var(--border-subtile); padding-top: 8px; margin-top: 8px;">
+                <span>Acompte Stripe à régler (30%)</span>
+                <span>{{ (totalGeneral * 0.30).toFixed(2) }} €</span>
+              </div>
+              <div class="ligne-financiere solde-fractionne" style="opacity: 0.85; font-size: 0.82rem; margin-bottom: 8px;">
+                <span>Solde restant (à la livraison)</span>
+                <span>{{ (totalGeneral * 0.70).toFixed(2) }} €</span>
+              </div>
+            </template>
             <div class="ligne-financiere caution-recap" v-if="cautionTotale > 0" style="font-size: 0.8rem; font-style: italic; opacity: 0.85;">
               <span>⚠️ Caution à déposer (remboursable)</span>
               <span>{{ cautionTotale }} €</span>
@@ -1196,5 +1301,28 @@ const soumettreCommande = async () => {
   border-color: transparent;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(197, 48, 48, 0.2);
+}
+
+.bouton-partager-panier {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold-dark);
+  padding: 12px;
+  border-radius: 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: all 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.bouton-partager-panier:hover {
+  background: var(--accent-gold-light);
+  color: var(--text-primary);
 }
 </style>
