@@ -502,7 +502,7 @@ const soumettreCommande = async () => {
   bottom: 0;
   width: 100%;
   max-width: 480px;
-  background-color: rgba(253, 252, 249, 0.96); /* Frosted linen écru */
+  background-color: var(--bg-app);
   border-left: 1px solid var(--border-subtile);
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.08);
   display: flex;
