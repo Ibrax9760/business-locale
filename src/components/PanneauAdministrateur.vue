@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { supabase } from '../utils/supabaseClient'
+import Chart from 'chart.js/auto'
 
 // Déclaration stricte des propriétés transmises par le routeur
 const props = defineProps({
@@ -13,6 +14,18 @@ const listeCommandes = ref([])
 const listeUtilisateurs = ref([])
 const listePromos = ref([])
 const chargement = ref(true)
+
+// Stats dashboard states
+const stats = ref({
+  chiffre_affaires: 0,
+  panier_moyen: 0,
+  volume_activite: 0,
+  evolution: []
+})
+const chargementStats = ref(false)
+
+let lineChartInstance = null
+let barChartInstance = null
 
 const modalCommandeOuverte = ref(false)
 const modalPromoOuverte = ref(false)
@@ -108,14 +121,137 @@ const getCouleurStatut = (statut) => {
 
 const formaterDate = (d) => new Date(d).toLocaleDateString('fr-FR')
 
+const chargerStats = async () => {
+  chargementStats.value = true
+  try {
+    const { data, error } = await supabase.rpc('get_admin_stats')
+    if (error) {
+      console.warn("RPC non disponible, calcul local...", error.message)
+      await chargerStatsLocal()
+    } else {
+      stats.value = data || { chiffre_affaires: 0, panier_moyen: 0, volume_activite: 0, evolution: [] }
+    }
+    
+    await nextTick()
+    initialiserGraphiques()
+  } catch (err) {
+    console.error("Erreur stats :", err)
+  } finally {
+    chargementStats.value = false
+  }
+}
+
+const chargerStatsLocal = async () => {
+  const { data } = await supabase
+    .from('commandes')
+    .select('total_general, created_at')
+    .in('statut', ['Validée', 'Terminée'])
+  
+  if (!data) return
+  
+  const ca = data.reduce((sum, c) => sum + (c.total_general || 0), 0)
+  const count = data.length
+  const pm = count > 0 ? ca / count : 0
+  
+  const evoMap = {}
+  data.forEach(c => {
+    const d = new Date(c.created_at).toLocaleDateString('fr-FR')
+    evoMap[d] = (evoMap[d] || 0) + (c.total_general || 0)
+  })
+  
+  const evolution = Object.keys(evoMap).map(k => ({
+    date_vente: k,
+    ca_jour: evoMap[k],
+    count_jour: data.filter(c => new Date(c.created_at).toLocaleDateString('fr-FR') === k).length
+  })).sort((a,b) => new Date(a.date_vente.split('/').reverse().join('-')) - new Date(b.date_vente.split('/').reverse().join('-')))
+  
+  stats.value = {
+    chiffre_affaires: ca,
+    panier_moyen: pm,
+    volume_activite: count,
+    evolution
+  }
+}
+
+const initialiserGraphiques = () => {
+  if (lineChartInstance) lineChartInstance.destroy()
+  if (barChartInstance) barChartInstance.destroy()
+  
+  const ctxLine = document.getElementById('lineChartCA')
+  const ctxBar = document.getElementById('barChartCA')
+  
+  const labels = stats.value.evolution.map(x => x.date_vente || 'Date')
+  const values = stats.value.evolution.map(x => x.ca_jour || 0)
+  const counts = stats.value.evolution.map(x => x.count_jour || 0)
+  
+  if (ctxLine) {
+    lineChartInstance = new Chart(ctxLine, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: "Chiffre d'Affaires (€)",
+          data: values,
+          borderColor: '#c5a47e',
+          backgroundColor: 'rgba(197, 164, 126, 0.1)',
+          borderWidth: 3,
+          tension: 0.3,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true }
+        }
+      }
+    })
+  }
+  
+  if (ctxBar) {
+    barChartInstance = new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Nombre de Ventes',
+          data: counts,
+          backgroundColor: '#26463c',
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+      }
+    })
+  }
+}
+
 const changerOnglet = (o) => {
   ongletActif.value = o
   if (o === 'commandes') chargerCommandes()
   if (o === 'utilisateurs') chargerUtilisateurs()
   if (o === 'promotions') chargerPromos()
+  if (o === 'stats') chargerStats()
 }
 
 onMounted(chargerCommandes)
+
+onUnmounted(() => {
+  if (lineChartInstance) lineChartInstance.destroy()
+  if (barChartInstance) barChartInstance.destroy()
+})
 </script>
 
 <template>
@@ -126,6 +262,7 @@ onMounted(chargerCommandes)
         <button :class="{ actif: ongletActif === 'commandes' }" @click="changerOnglet('commandes')">Commandes</button>
         <button :class="{ actif: ongletActif === 'utilisateurs' }" @click="changerOnglet('utilisateurs')">Utilisateurs</button>
         <button v-if="props.profilClient?.role === 'super_admin'" :class="{ actif: ongletActif === 'promotions' }" @click="changerOnglet('promotions')">Promotions</button>
+        <button :class="{ actif: ongletActif === 'stats' }" @click="changerOnglet('stats')">📈 Statistiques</button>
       </div>
     </div>
 
@@ -216,6 +353,52 @@ onMounted(chargerCommandes)
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ONGLET STATISTIQUES -->
+    <div v-if="ongletActif === 'stats'" class="contenu-onglet">
+      <div v-if="chargementStats" class="chargement-premium">
+        Calcul et chargement des statistiques en cours...
+      </div>
+      <div v-else class="conteneur-stats-dashboard">
+        <!-- KPI Cards Grid -->
+        <div class="grille-kpi-stats">
+          <div class="carte-kpi-stats">
+            <span class="label-kpi">💰 Chiffre d'Affaires</span>
+            <span class="valeur-kpi">{{ stats.chiffre_affaires.toFixed(2) }} €</span>
+            <p class="desc-kpi">Ventes cumulées validées</p>
+          </div>
+          
+          <div class="carte-kpi-stats">
+            <span class="label-kpi">🧺 Panier Moyen</span>
+            <span class="valeur-kpi">{{ stats.panier_moyen.toFixed(2) }} €</span>
+            <p class="desc-kpi">Moyenne par commande</p>
+          </div>
+          
+          <div class="carte-kpi-stats">
+            <span class="label-kpi">📈 Commandes Traitées</span>
+            <span class="valeur-kpi">{{ stats.volume_activite }}</span>
+            <p class="desc-kpi">Volume total de commandes</p>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grille-graphiques-stats">
+          <div class="carte-graphique">
+            <h3>📈 Évolution temporelle du Chiffre d'Affaires</h3>
+            <div class="chart-wrapper">
+              <canvas id="lineChartCA"></canvas>
+            </div>
+          </div>
+          
+          <div class="carte-graphique">
+            <h3>📊 Volume quotidien des transactions</h3>
+            <div class="chart-wrapper">
+              <canvas id="barChartCA"></canvas>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -386,5 +569,84 @@ onMounted(chargerCommandes)
 .modal-pop-enter-from .modal-auth,
 .modal-pop-leave-to .modal-auth {
   transform: scale(0.95) translateY(10px);
+}
+
+/* --- SECTION STATISTIQUES DASHBOARD --- */
+.conteneur-stats-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  animation: fadeIn 0.4s ease;
+}
+.grille-kpi-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.carte-kpi-stats {
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.3s ease;
+}
+.carte-kpi-stats:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(197, 164, 126, 0.15);
+  border-color: var(--accent-gold);
+}
+.carte-kpi-stats .label-kpi {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.5px;
+}
+.carte-kpi-stats .valeur-kpi {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--accent-green);
+  font-family: 'Playfair Display', serif;
+}
+.carte-kpi-stats .desc-kpi {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.grille-graphiques-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+}
+.carte-graphique {
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.carte-graphique h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+.chart-wrapper {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .grille-graphiques-stats {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
