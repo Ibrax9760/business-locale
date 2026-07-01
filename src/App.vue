@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { supabase } from './utils/supabaseClient';
 import EnTete from './components/EnTete.vue';
 import TiroirPanier from './components/TiroirPanier.vue';
