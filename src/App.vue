@@ -5,8 +5,10 @@ import EnTete from './components/EnTete.vue';
 import TiroirPanier from './components/TiroirPanier.vue';
 import TiroirMenuBuilder from './components/TiroirMenuBuilder.vue';
 import { currentLang, setLang, t } from './utils/i18n';
+import { useUIStore } from './stores/ui';
 
 // --- ÉTATS GLOBAUX ---
+const uiStore = useUIStore();
 const utilisateur = ref(null);
 const profilClient = ref(null);
 const panier = ref([]);
@@ -63,7 +65,47 @@ const afficherNotification = (texte) => {
   setTimeout(() => notification.value.active = false, 3000);
 };
 
-const ajouterAuPanier = (article, estProduit = false) => {
+// --- ANIMATION MICRO-INTERACTION D'AJOUT AU PANIER (COURBE PARABOLIQUE) ---
+const animerParticulePanier = (event) => {
+  if (!event) return;
+
+  const particule = document.createElement('div');
+  particule.className = 'particule-volante';
+  
+  // Coordonnées du clic (départ)
+  const departX = event.clientX;
+  const departY = event.clientY;
+  
+  // Coordonnées du bouton panier flottant (destination)
+  const boutonPanier = document.querySelector('.bouton-panier-flottant');
+  if (!boutonPanier) return;
+  const rectDestination = boutonPanier.getBoundingClientRect();
+  const finX = rectDestination.left + rectDestination.width / 2;
+  const finY = rectDestination.top + rectDestination.height / 2;
+  
+  particule.style.left = `${departX}px`;
+  particule.style.top = `${departY}px`;
+  document.body.appendChild(particule);
+  
+  // Calculer la translation et déclencher la transition CSS
+  requestAnimationFrame(() => {
+    const deltaX = finX - departX;
+    const deltaY = finY - departY;
+    particule.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.2)`;
+    particule.style.opacity = '0';
+  });
+  
+  // Nettoyer le DOM et déclencher le rebond à l'impact (800ms)
+  setTimeout(() => {
+    particule.remove();
+    declencherSecoussePanier.value = true;
+    setTimeout(() => {
+      declencherSecoussePanier.value = false;
+    }, 450);
+  }, 800);
+};
+
+const ajouterAuPanier = (article, estProduit = false, event = null) => {
   let idUnique, titreComplet, prixFinal;
   if (estProduit) {
     idUnique = `${article.id}-${article.varianteChoisie.nom}`;
@@ -80,22 +122,27 @@ const ajouterAuPanier = (article, estProduit = false) => {
   } else {
     // INJECTION ABSOLUE DES DATES DANS LE TABLEAU
     panier.value.push({ 
-  idUnique, 
-  idBase: article.id, // Ajout de la référence stricte à la base de données
-  titre: titreComplet, 
-  prix: prixFinal, 
-  quantite: 1, 
-  typeElement: estProduit ? 'gastronomie' : 'location',
-  dateDebut: estProduit ? null : article.dateDebutSelectionnee,
-  dateFin: estProduit ? null : article.dateFinSelectionnee,
-  duree: estProduit ? null : article.dureeJours 
-  });
+      idUnique, 
+      idBase: article.id,
+      titre: titreComplet, 
+      prix: prixFinal, 
+      quantite: 1, 
+      typeElement: estProduit ? 'gastronomie' : 'location',
+      dateDebut: estProduit ? null : article.dateDebutSelectionnee,
+      dateFin: estProduit ? null : article.dateFinSelectionnee,
+      duree: estProduit ? null : article.dureeJours 
+    });
   }
   afficherNotification(`✅ ${titreComplet} ${t('add_to_cart')}`);
-  declencherSecoussePanier.value = true;
-  setTimeout(() => {
-    declencherSecoussePanier.value = false;
-  }, 400);
+  
+  if (event) {
+    animerParticulePanier(event);
+  } else {
+    declencherSecoussePanier.value = true;
+    setTimeout(() => {
+      declencherSecoussePanier.value = false;
+    }, 400);
+  }
 };
 
 const executerCommandeWhatsApp = (payload) => {
@@ -295,7 +342,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div id="app">
+  <div id="app" :class="{ 'mode-prestige': uiStore.modeActuel === 'evenement' }">
     
     <transition name="modal-pop">
       <div v-if="afficherFormulaireAuth && (authMode === 'reinitialisation' || !utilisateur)" class="modal-overlay" @click.self="afficherFormulaireAuth = false">
@@ -1072,5 +1119,40 @@ button:active:not(:disabled),
 .selecteur-onglets button:active {
   transform: scale(0.96) !important;
   transition: transform 0.1s ease !important;
+}
+
+/* --- TRANSITION VISUELLE DES MODES (MODE PRESTIGE) --- */
+#app {
+  transition: background-color 0.4s ease-in-out, border-color 0.4s ease-in-out;
+}
+
+#app.mode-prestige {
+  --bg-app: #faf6f0; 
+  --border-subtile: rgba(197, 164, 126, 0.35);
+  transition: all 0.4s ease-in-out;
+}
+
+body.theme-sombre #app.mode-prestige {
+  --bg-app: #0a0908;
+  --border-subtile: rgba(216, 184, 143, 0.25);
+}
+
+body.theme-pure-white #app.mode-prestige {
+  --bg-app: #f5f7fa;
+  --border-subtile: rgba(100, 116, 139, 0.25);
+}
+
+/* PARTICULE VOLANTE D'AJOUT AU PANIER */
+.particule-volante {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  background: radial-gradient(circle, var(--accent-gold) 30%, rgba(197, 164, 126, 0.4) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 0 10px var(--accent-gold), 0 0 20px rgba(197, 164, 126, 0.6);
+  transition: transform 0.8s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.8s ease-out;
+  transform-origin: center;
 }
 </style>

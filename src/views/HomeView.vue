@@ -243,7 +243,7 @@ const equipementsFiltrés = computed(() => {
           v-for="produit in produitsFiltrés" 
           :key="produit.id" 
           :produit="produit"
-          @ajouter-produit="emit('ajouter-au-panier', $event, true)"
+          @ajouter-produit="(prod, evt) => emit('ajouter-au-panier', prod, true, evt)"
         />
       </div>
     </section>
@@ -270,7 +270,7 @@ const equipementsFiltrés = computed(() => {
           :key="equipement.id" 
           :equipement="equipement"
           :dateFiltreGlobal="dateFiltreGlobal"
-          @ajouter-equipement="emit('ajouter-au-panier', $event, false)"
+          @ajouter-equipement="(eq, evt) => emit('ajouter-au-panier', eq, false, evt)"
         />
       </div>
     </section>
@@ -291,14 +291,14 @@ const equipementsFiltrés = computed(() => {
           v-for="produit in produitsFavoris" 
           :key="produit.id" 
           :produit="produit"
-          @ajouter-produit="emit('ajouter-au-panier', $event, true)"
+          @ajouter-produit="(prod, evt) => emit('ajouter-au-panier', prod, true, evt)"
         />
         <CarteEquipement 
           v-for="equipement in equipementsFavoris" 
           :key="equipement.id" 
           :equipement="equipement"
           :dateFiltreGlobal="dateFiltreGlobal"
-          @ajouter-equipement="emit('ajouter-au-panier', $event, false)"
+          @ajouter-equipement="(eq, evt) => emit('ajouter-au-panier', eq, false, evt)"
         />
       </div>
     </section>

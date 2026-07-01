@@ -73,7 +73,7 @@ const dateFinMin = computed(() => {
   return dateDebut.value ? dateDebut.value : dateMin.value;
 });
 
-const ajouterSiValide = () => {
+const ajouterSiValide = (event) => {
   if (dureeJours.value > 0 && !estDejaReserve.value) {
     emit('ajouter-equipement', {
       ...props.equipement,
@@ -81,7 +81,7 @@ const ajouterSiValide = () => {
       dateFinSelectionnee: dateFin.value,
       dureeJours: dureeJours.value,
       prixTotalLocation: prixTotal.value
-    });
+    }, event);
   }
 };
 </script>
@@ -140,7 +140,7 @@ const ajouterSiValide = () => {
         </span>
       </div>
       <button 
-        @click="ajouterSiValide" 
+        @click="ajouterSiValide($event)" 
         class="bouton-ajouter" 
         :disabled="dureeJours === 0 || estDejaReserve || datesInvalides"
       >

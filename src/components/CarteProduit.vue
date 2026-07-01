@@ -55,7 +55,7 @@ const basculerFavori = () => {
         <span class="label-prix">{{ t('price_label') }}</span>
         <span class="valeur-prix">{{ produit.varianteChoisie.prix }} €</span>
       </div>
-      <button @click="emit('ajouter-produit', produit)" class="bouton-ajouter">
+      <button @click="emit('ajouter-produit', produit, $event)" class="bouton-ajouter">
         {{ t('add_to_cart') }}
       </button>
     </div>

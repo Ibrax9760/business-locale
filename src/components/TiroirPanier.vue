@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { supabase } from '../utils/supabaseClient'
 import { t, currentLang } from '../utils/i18n'
+import { useUIStore } from '../stores/ui'
 
 const props = defineProps({
   panier: Array,
@@ -11,6 +12,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close-panier', 'update-panier', 'commander-whatsapp'])
+const uiStore = useUIStore()
 
 const codePromo = ref('')
 const reductionAppliquee = ref(0)
@@ -22,6 +24,17 @@ const zoneLivraison = ref('Petite-Terre')
 
 const nomClient = ref('')
 const dateSouhaitee = ref('')
+
+// Champs Smart Checkout (Standard vs Événement)
+const prenomClient = ref('')
+const telephoneClient = ref('')
+const emailClient = ref('')
+const creneauRetrait = ref('11:30 - 12:30')
+
+const dateEvenement = ref('')
+const adresseEvenement = ref('')
+const nbInvites = ref(10)
+const detailsLogistiques = ref('')
 
 // Addons & Referral refs
 const garantieCasseActive = ref(false)
@@ -39,9 +52,12 @@ const dateMin = computed(() => {
   return `${yyyy}-${mm}-${dd}`;
 });
 
-watch(() => props.profilClient?.nom, (nouveauNom) => {
-  if (nouveauNom && !nomClient.value) {
-    nomClient.value = nouveauNom;
+watch(() => props.profilClient, (profil) => {
+  if (profil) {
+    if (profil.nom && !nomClient.value) nomClient.value = profil.nom;
+    if (profil.prenom && !prenomClient.value) prenomClient.value = profil.prenom || '';
+    if (profil.telephone && !telephoneClient.value) telephoneClient.value = profil.telephone || '';
+    if (profil.email && !emailClient.value) emailClient.value = profil.email || '';
   }
 }, { immediate: true });
 
@@ -137,15 +153,25 @@ const verifierCodePromo = async () => {
 }
 
 const soumettreCommande = async () => {
-  if (!nomClient.value || !dateSouhaitee.value) {
-    alert("Veuillez renseigner votre nom et la date souhaitée.")
-    return
+  // Validation conditionnelle intelligente
+  if (uiStore.estModeStandard) {
+    if (!nomClient.value || !prenomClient.value || !telephoneClient.value || !emailClient.value || !dateSouhaitee.value || !creneauRetrait.value) {
+      alert("Veuillez renseigner tous les champs obligatoires (Nom, Prénom, Téléphone, E-mail, Date et Créneau de retrait).")
+      return
+    }
+  } else {
+    if (!nomClient.value || !telephoneClient.value || !emailClient.value || !dateEvenement.value || !adresseEvenement.value || !nbInvites.value) {
+      alert("Veuillez renseigner tous les champs obligatoires (Nom de famille, Téléphone, E-mail, Date de l'événement, Adresse et Nombre d'invités).")
+      return
+    }
   }
+
+  const dateFinale = uiStore.estModeStandard ? dateSouhaitee.value : dateEvenement.value;
 
   // 1. Sauvegarde en base de données via Supabase
   const payloadDb = {
     client_id: props.utilisateur ? props.utilisateur.id : null,
-    nom_client: nomClient.value,
+    nom_client: uiStore.estModeStandard ? `${nomClient.value} ${prenomClient.value}` : nomClient.value,
     details_panier: [
       ...props.panier.map(item => ({
         idBase: item.idBase,
@@ -153,8 +179,8 @@ const soumettreCommande = async () => {
         titre: item.titre,
         quantite: item.quantite,
         prix: item.prix,
-        dateDebut: item.dateDebut,
-        dateFin: item.dateFin
+        dateDebut: item.dateDebut || dateFinale,
+        dateFin: item.dateFin || dateFinale
       })),
       {
         typeElement: 'metadata',
@@ -162,13 +188,23 @@ const soumettreCommande = async () => {
         garantieCasse: garantieCasseActive.value,
         serviceMontage: serviceMontageActif.value,
         serviceServeurs: serviceServeursActif.value ? `${nbServeurs.value} serveurs x ${dureeServeurs.value}h` : null,
-        cautionCalculee: cautionTotale.value
+        cautionCalculee: cautionTotale.value,
+        modeActuel: uiStore.modeActuel,
+        prenomClient: prenomClient.value || null,
+        telephoneClient: telephoneClient.value || null,
+        emailClient: emailClient.value || null,
+        creneauRetrait: uiStore.estModeStandard ? creneauRetrait.value : null,
+        adresseEvenement: uiStore.estModeEvenement ? adresseEvenement.value : null,
+        nbInvites: uiStore.estModeEvenement ? nbInvites.value : null,
+        detailsLogistiques: uiStore.estModeEvenement ? detailsLogistiques.value : null
       }
     ],
-    mode_recuperation: modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`,
+    mode_recuperation: uiStore.estModeStandard 
+      ? (modeRecup.value === 'Retrait' ? 'Retrait' : `Livraison (${zoneLivraison.value})`)
+      : `Événement (Livraison: ${adresseEvenement.value})`,
     frais_logistique: fraisLogistiques.value,
     total_general: totalGeneral.value,
-    date_commande: dateSouhaitee.value,
+    date_commande: dateFinale,
     statut: 'En attente'
   }
 
@@ -214,32 +250,51 @@ const soumettreCommande = async () => {
 
   // 2. Génération du message WhatsApp (Mise en page Premium & Emojis)
   let msg = `━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `✨ *${t('brand_title')}* ✨\n`;
+  if (uiStore.estModeStandard) {
+    msg += `✨ *${t('brand_title')} — NOUVELLE COMMANDE* ✨\n`;
+  } else {
+    msg += `🏰 *${t('brand_title')} — DEMANDE DE DEVIS* 🏰\n`;
+  }
   msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-  msg += `👤 *${t('your_info').toUpperCase()}*\n`;
-  msg += `▫️ *${t('fullname')} :* ${nomClient.value}\n`;
+  msg += `👤 *INFORMATIONS CLIENT*\n`;
+  if (uiStore.estModeStandard) {
+    msg += `▫️ *Client :* ${prenomClient.value} ${nomClient.value}\n`;
+    msg += `▫️ *Téléphone :* ${telephoneClient.value}\n`;
+    msg += `▫️ *E-mail :* ${emailClient.value}\n`;
+    msg += `▫️ *Type :* Vente Standard (Boutique)\n`;
+    const recupLabel = modeRecup.value === 'Retrait' 
+      ? 'Retrait sur place (Gratuit)'
+      : `Livraison - ${zoneLivraison.value}`;
+    msg += `▫️ *Mode :* ${recupLabel}\n`;
+    msg += `▫️ *Date de retrait :* ${formaterDate(dateSouhaitee.value)} (Créneau : ${creneauRetrait.value})\n\n`;
+  } else {
+    msg += `▫️ *Client :* ${nomClient.value}\n`;
+    msg += `▫️ *Téléphone :* ${telephoneClient.value}\n`;
+    msg += `▫️ *E-mail :* ${emailClient.value}\n`;
+    msg += `▫️ *Type :* Événement de Prestige (Devis)\n`;
+    msg += `▫️ *Date de l'événement :* ${formaterDate(dateEvenement.value)}\n`;
+    msg += `▫️ *Nombre d'invités :* ${nbInvites.value} personnes\n`;
+    msg += `▫️ *Adresse de réception :* ${adresseEvenement.value}\n`;
+    if (detailsLogistiques.value) {
+      msg += `▫️ *Notes logistiques :* ${detailsLogistiques.value}\n`;
+    }
+    msg += `\n`;
+  }
 
-  const recupLabel = modeRecup.value === 'Retrait' 
-    ? (currentLang.value === 'fr' ? 'Retrait sur place (Gratuit)' : 'Utswala mpahalani (Bure)')
-    : (currentLang.value === 'fr' ? `Livraison - ${zoneLivraison.value}` : `Upelekwa - ${zoneLivraison.value}`);
-    
-  msg += `▫️ *${t('recovery_mode')} :* ${recupLabel}\n`;
-  msg += `▫️ *${t('pickup_date')}* ${dateSouhaitee.value ? formaterDate(dateSouhaitee.value) : '---'}\n\n`;
-
-  msg += `🛒 *${t('articles').toUpperCase()}*\n`;
+  msg += `🛒 *DÉTAILS DES ARTICLES*\n`;
   props.panier.forEach(item => {
     msg += `• ${item.quantite}x ${item.titre} — ${(item.prix * item.quantite).toFixed(2)} €\n`;
     if (item.dateDebut) {
-      msg += `  ↳ 📅 ${formaterDate(item.dateDebut)} ➔ ${formaterDate(item.dateFin)} (${item.duree} ${t('days')})\n`;
+      msg += `  ↳ 📅 ${formaterDate(item.dateDebut)} ➔ ${formaterDate(item.dateFin)} (${item.duree} j.)\n`;
     }
   });
   msg += `\n`;
 
-  msg += `💰 *RÉCAPITULATIF*\n`;
-  msg += `▫️ ${t('articles')} : ${totalArticles.value.toFixed(2)} €\n`;
+  msg += `💰 *RÉCAPITULATIF FINANCIER*\n`;
+  msg += `▫️ Sous-total : ${totalArticles.value.toFixed(2)} €\n`;
   if (reductionAppliquee.value > 0) {
-    msg += `▫️ ${t('reduction')} : -${reductionAppliquee.value}% ${nomParrain.value ? '(Parrain: ' + nomParrain.value + ')' : ''}\n`;
+    msg += `▫️ Réduction : -${reductionAppliquee.value}% ${nomParrain.value ? '(Parrain: ' + nomParrain.value + ')' : ''}\n`;
   }
   if (coutGarantieCasse.value > 0) {
     msg += `▫️ Garantie Casse : +${coutGarantieCasse.value.toFixed(2)} €\n`;
@@ -250,15 +305,19 @@ const soumettreCommande = async () => {
   if (serviceServeursActif.value) {
     msg += `▫️ Service Personnel : ${nbServeurs.value} serveurs x ${dureeServeurs.value}h (+${coutServeurs.value.toFixed(2)} €)\n`;
   }
-  msg += `▫️ ${t('logistic_fees')} : ${fraisLogistiques.value > 0 ? fraisLogistiques.value.toFixed(2) + ' €' : t('free')}\n`;
-  msg += `▶️ *${t('total_to_pay').toUpperCase()} : ${totalGeneral.value.toFixed(2)} €*\n`;
+  if (!uiStore.estModeStandard) {
+    msg += `▫️ Frais de livraison/logistique : ${fraisLogistiques.value > 0 ? fraisLogistiques.value.toFixed(2) + ' €' : 'Gratuit'}\n`;
+  } else if (modeRecup.value !== 'Retrait') {
+    msg += `▫️ Frais de livraison : ${fraisLogistiques.value.toFixed(2)} €\n`;
+  }
+  msg += `▶️ *${uiStore.estModeStandard ? 'TOTAL À PAYER' : 'TOTAL ESTIMÉ DU DEVIS'} : ${totalGeneral.value.toFixed(2)} €*\n`;
   if (cautionTotale.value > 0) {
-    msg += `⚠️ *Caution à déposer : ${cautionTotale.value} €*\n`;
+    msg += `⚠️ *Caution (remboursable) : ${cautionTotale.value} €*\n`;
   }
   msg += `\n`;
 
   msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `💬 *${currentLang.value === 'fr' ? 'Merci pour votre confiance !' : 'Marahaba wadjiri !'}*\n`;
+  msg += `💬 *${uiStore.estModeStandard ? 'Merci pour votre commande !' : 'Demande de devis soumise avec succès !'}*\n`;
   msg += `━━━━━━━━━━━━━━━━━━━━━`;
 
   emit('commander-whatsapp', { message: msg })
@@ -320,8 +379,8 @@ const soumettreCommande = async () => {
             <p v-if="codePromoSucces" class="promo-succes">🎉 Code appliqué : -{{ reductionAppliquee }}%</p>
           </div>
 
-          <!-- MODE RÉCUPÉRATION -->
-          <div class="section-mode-recup">
+          <!-- MODE RÉCUPÉRATION (STANDARD UNIQUEMENT) -->
+          <div v-if="uiStore.estModeStandard" class="section-mode-recup">
             <label class="label-champ-premium">{{ t('recovery_mode') }}</label>
             <div class="selecteur-mode-recup">
               <button 
@@ -369,17 +428,85 @@ const soumettreCommande = async () => {
             </div>
           </div>
 
-          <!-- FORMULAIRE INFORMATIONS CLIENT -->
+          <!-- FORMULAIRE INFORMATIONS CLIENT DYNAMIQUE -->
           <div class="section-infos-client">
-            <label class="label-champ-premium">{{ t('your_info') }}</label>
-            <div class="formulaire-client">
-              <div class="groupe-saisie">
-                <label>{{ t('fullname') }}</label>
-                <input type="text" v-model="nomClient" placeholder="Ex: Ibrahima" required />
+            <label class="label-champ-premium">{{ uiStore.estModeStandard ? t('your_info') : '📋 Informations Devis Projet' }}</label>
+            
+            <!-- FORMULAIRE STANDARD (BOUTIQUE) -->
+            <div v-if="uiStore.estModeStandard" class="formulaire-client">
+              <div class="groupe-saisie-ligne">
+                <div class="groupe-saisie">
+                  <label>Nom *</label>
+                  <input type="text" v-model="nomClient" placeholder="Nom" required />
+                </div>
+                <div class="groupe-saisie">
+                  <label>Prénom *</label>
+                  <input type="text" v-model="prenomClient" placeholder="Prénom" required />
+                </div>
+              </div>
+              <div class="groupe-saisie-ligne">
+                <div class="groupe-saisie">
+                  <label>Téléphone *</label>
+                  <input type="tel" v-model="telephoneClient" placeholder="0639 XX XX XX" required />
+                </div>
+                <div class="groupe-saisie">
+                  <label>E-mail *</label>
+                  <input type="email" v-model="emailClient" placeholder="exemple@mail.com" required />
+                </div>
               </div>
               <div class="groupe-saisie">
-                <label>{{ t('pickup_date') }}</label>
+                <label>Date de retrait *</label>
                 <input type="date" v-model="dateSouhaitee" :min="dateMin" required />
+              </div>
+              <div class="groupe-saisie">
+                <label>Créneau horaire de retrait *</label>
+                <select v-model="creneauRetrait" class="select-creneau-premium">
+                  <option value="11:30 - 12:30">Midi (11h30 - 12h30)</option>
+                  <option value="12:30 - 13:30">Midi (12h30 - 13h30)</option>
+                  <option value="18:30 - 19:30">Soir (18h30 - 19h30)</option>
+                  <option value="19:30 - 20:30">Soir (19h30 - 20h30)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- FORMULAIRE ÉVÉNEMENTIEL (DEVIS) -->
+            <div v-else class="formulaire-client">
+              <div class="groupe-saisie">
+                <label>Nom ou Organisation de l'événement *</label>
+                <input type="text" v-model="nomClient" placeholder="Ex: Mariage Famille X / Entreprise Y" required />
+              </div>
+              <div class="groupe-saisie-ligne">
+                <div class="groupe-saisie">
+                  <label>Téléphone de contact *</label>
+                  <input type="tel" v-model="telephoneClient" placeholder="0639 XX XX XX" required />
+                </div>
+                <div class="groupe-saisie">
+                  <label>E-mail de contact *</label>
+                  <input type="email" v-model="emailClient" placeholder="adresse@email.com" required />
+                </div>
+              </div>
+              <div class="groupe-saisie-ligne">
+                <div class="groupe-saisie">
+                  <label>Date précise de l'événement *</label>
+                  <input type="date" v-model="dateEvenement" :min="dateMin" required />
+                </div>
+                <div class="groupe-saisie">
+                  <label>Nombre d'invités attendus *</label>
+                  <input type="number" v-model="nbInvites" min="1" required />
+                </div>
+              </div>
+              <div class="groupe-saisie">
+                <label>Adresse exacte de la réception à Mayotte *</label>
+                <input type="text" v-model="adresseEvenement" placeholder="Ex: Plage de Sakouli, Bandrélé" required />
+              </div>
+              <div class="groupe-saisie">
+                <label>Contraintes & Spécifications logistiques</label>
+                <textarea 
+                  v-model="detailsLogistiques" 
+                  placeholder="Ex: Régimes spécifiques, accès PMR, tentes supplémentaires, logistique d'accès..."
+                  rows="3"
+                  class="textarea-logistique-premium"
+                ></textarea>
               </div>
             </div>
           </div>
@@ -468,7 +595,7 @@ const soumettreCommande = async () => {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="icone-whatsapp">
                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
               </svg>
-              {{ t('validate_whatsapp') }}
+              {{ uiStore.estModeStandard ? 'Confirmer ma commande' : 'Demander mon devis gratuit' }}
             </button>
           </div>
         </div>
@@ -974,5 +1101,55 @@ const soumettreCommande = async () => {
 .slide-drawer-enter-from,
 .slide-drawer-leave-to {
   transform: translateX(100%);
+}
+
+/* SMART CHECKOUT FIELDS */
+.groupe-saisie-ligne {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+.groupe-saisie-ligne .groupe-saisie {
+  flex: 1;
+}
+.select-creneau-premium {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  box-shadow: var(--shadow-douce);
+  transition: border-color 0.2s;
+}
+.select-creneau-premium:focus {
+  border-color: var(--accent-gold);
+}
+.textarea-logistique-premium {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtile);
+  background: var(--bg-carte);
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  outline: none;
+  resize: vertical;
+  box-shadow: var(--shadow-douce);
+  transition: border-color 0.2s;
+}
+.textarea-logistique-premium:focus {
+  border-color: var(--accent-gold);
+}
+@media (max-width: 480px) {
+  .groupe-saisie-ligne {
+    flex-direction: column;
+    gap: 0px; /* will stack vertically with standard margins */
+  }
 }
 </style>
