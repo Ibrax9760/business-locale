@@ -118,6 +118,12 @@ const modifierQuantite = (item, delta) => {
   }
 }
 
+const viderPanier = () => {
+  if (confirm("Voulez-vous vraiment vider votre panier ?")) {
+    emit('update-panier', [])
+  }
+}
+
 const verifierCodePromo = async () => {
   codePromoErreur.value = ''
   codePromoSucces.value = false
@@ -334,7 +340,17 @@ const soumettreCommande = async () => {
       <div v-if="panierOuvert" class="contenu-tiroir">
         <div class="en-tete-panier">
           <h2>{{ t('your_cart') }}</h2>
-          <button @click="emit('close-panier')" class="bouton-fermer-tiroir" aria-label="Fermer">✖</button>
+          <div class="actions-en-tete-panier">
+            <button 
+              v-if="props.panier.length > 0" 
+              @click="viderPanier" 
+              class="bouton-vider-panier"
+              title="Vider le panier"
+            >
+              🗑️ Vider
+            </button>
+            <button @click="emit('close-panier')" class="bouton-fermer-tiroir" aria-label="Fermer">✖</button>
+          </div>
         </div>
 
         <div v-if="props.panier.length === 0" class="panier-vide">
@@ -1151,5 +1167,34 @@ const soumettreCommande = async () => {
     flex-direction: column;
     gap: 0px; /* will stack vertically with standard margins */
   }
+}
+
+/* ACTIONS EN-TÊTE PANIER */
+.actions-en-tete-panier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.bouton-vider-panier {
+  background: transparent;
+  border: 1px solid rgba(197, 164, 126, 0.35);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 99px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bouton-vider-panier:hover {
+  background: #c53030;
+  color: #ffffff;
+  border-color: transparent;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(197, 48, 48, 0.2);
 }
 </style>
