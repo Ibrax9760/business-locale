@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { t } from '../utils/i18n'
+import { useUIStore } from '../stores/ui'
 
 const props = defineProps({
   utilisateur: Object,
@@ -14,10 +15,19 @@ const emit = defineEmits(['open-panier', 'deconnexion', 'open-auth', 'open-setti
 
 const router = useRouter()
 const route = useRoute()
+const uiStore = useUIStore()
+
 const menuUtilisateurOuvert = ref(false)
 
 const gererClicUtilisateur = () => {
   menuUtilisateurOuvert.value = !menuUtilisateurOuvert.value;
+}
+
+const changerDeMode = (mode) => {
+  uiStore.setMode(mode)
+  if (route.path !== '/') {
+    router.push('/')
+  }
 }
 
 const actionnerAdmin = () => {
@@ -68,8 +78,9 @@ const actionnerDeconnexion = () => {
 
 <template>
   <header class="navbar-premium">
-    <!-- ZONE GAUCHE : RETOUR OU PROFIL + MENU CONTEXTUEL -->
-    <div class="nav-zone nav-gauche">
+    <div class="navbar-main-row">
+      <!-- ZONE GAUCHE : RETOUR OU PROFIL + MENU CONTEXTUEL -->
+      <div class="nav-zone nav-gauche">
       <button 
         v-if="route.path !== '/'" 
         @click="router.push('/')" 
@@ -182,12 +193,35 @@ const actionnerDeconnexion = () => {
       </h1>
     </div>
 
-    <!-- ZONE DROITE : VIDE POUR LA RESPONSIVITÉ -->
-    <div class="nav-zone nav-droite"></div>
+      <!-- ZONE DROITE : VIDE POUR LA RESPONSIVITÉ -->
+      <div class="nav-zone nav-droite"></div>
+    </div>
+
+    <!-- COMMUTATEUR DE MODE (SLIDING TOGGLE) -->
+    <div class="navbar-mode-switcher-row">
+      <div class="sliding-toggle-container">
+        <div class="sliding-toggle-bg" :class="uiStore.modeActuel"></div>
+        <button 
+          class="toggle-btn" 
+          :class="{ actif: uiStore.modeActuel === 'standard' }" 
+          @click="changerDeMode('standard')"
+        >
+          🍳 Boutique Traiteur
+        </button>
+        <button 
+          class="toggle-btn" 
+          :class="{ actif: uiStore.modeActuel === 'evenement' }" 
+          @click="changerDeMode('evenement')"
+        >
+          🏰 Événements & Locations
+        </button>
+      </div>
+    </div>
   </header>
 
   <!-- BOUTON MENU BUILDER FLOTTANT (FAB) EN BAS À DROITE (AU-DESSUS DU PANIER) -->
   <button 
+    v-if="uiStore.estModeEvenement"
     class="bouton-builder-flottant" 
     @click="$emit('open-menu-builder')" 
     aria-label="Lancer l'assistant de menu"
@@ -218,7 +252,8 @@ const actionnerDeconnexion = () => {
 /* Configuration de la barre de navigation principale */
 .navbar-premium { 
   display: flex; 
-  justify-content: space-between; 
+  flex-direction: column;
+  justify-content: center; 
   align-items: center; 
   padding: 16px 40px; 
   position: sticky; 
@@ -230,6 +265,75 @@ const actionnerDeconnexion = () => {
   border-bottom: 1px solid var(--border-subtile);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.015);
   transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.navbar-main-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-mode-switcher-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-top: 12px;
+}
+
+.sliding-toggle-container {
+  position: relative;
+  display: flex;
+  background: var(--bg-app, #f5f4f0);
+  border: 1px solid var(--border-subtile);
+  border-radius: 99px;
+  padding: 3px;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.sliding-toggle-bg {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  background: var(--bg-carte, #ffffff);
+  border: 1px solid var(--border-subtile);
+  border-radius: 99px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sliding-toggle-bg.evenement {
+  transform: translateX(100%);
+  border-color: var(--accent-gold);
+}
+
+.toggle-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  z-index: 1;
+  text-align: center;
+  transition: color 0.3s ease;
+  white-space: nowrap;
+}
+
+.toggle-btn.actif {
+  color: var(--text-primary);
+}
+
+.sliding-toggle-container:has(.sliding-toggle-bg.evenement) .toggle-btn.actif {
+  color: var(--accent-gold-dark);
 }
 
 .nav-zone { display: flex; align-items: center; }

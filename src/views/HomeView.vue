@@ -1,12 +1,22 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { supabase } from '../utils/supabaseClient';
 import CarteProduit from '../components/CarteProduit.vue';
 import CarteEquipement from '../components/CarteEquipement.vue';
 import { t } from '../utils/i18n';
+import { useUIStore } from '../stores/ui';
 
 const props = defineProps(['panier']);
 const emit = defineEmits(['ajouter-au-panier', 'open-menu-builder']);
+
+const router = useRouter();
+const uiStore = useUIStore();
+
+const ouvrirAssistantEvent = () => {
+  uiStore.setMode('evenement')
+  emit('open-menu-builder')
+}
 
 const produits = ref([]);
 const equipements = ref([]);
@@ -91,14 +101,19 @@ const chargerDonnees = async () => {
   }
 };
 
-const listeIdsFavoris = ref(JSON.parse(localStorage.getItem('app-wishlist') || '[]'));
-const nbFavoris = computed(() => listeIdsFavoris.value.length);
-
 const produitsFavoris = computed(() => {
-  return produits.value.filter(p => listeIdsFavoris.value.includes(p.id));
+  let list = produits.value.filter(p => listeIdsFavoris.value.includes(p.id))
+  if (uiStore.estModeStandard) {
+    list = list.filter(p => !estProduitEvenement(p))
+  } else {
+    list = list.filter(p => estProduitEvenement(p))
+  }
+  return list
 });
+
 const equipementsFavoris = computed(() => {
-  return equipements.value.filter(e => listeIdsFavoris.value.includes(e.id));
+  if (uiStore.estModeStandard) return []
+  return equipements.value.filter(e => listeIdsFavoris.value.includes(e.id))
 });
 
 onMounted(() => {
@@ -108,8 +123,33 @@ onMounted(() => {
   });
 });
 
-const produitsFiltrés = computed(() => (pageActive.value === 'location' || pageActive.value === 'favoris') ? [] : produits.value.filter(p => p.titre.toLowerCase().includes(recherche.value.toLowerCase())));
-const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' || pageActive.value === 'favoris') ? [] : equipements.value.filter(e => e.titre.toLowerCase().includes(recherche.value.toLowerCase())));
+const estProduitEvenement = (p) => {
+  const titre = (p.titre || '').toLowerCase()
+  const cat = (p.categorie || '').toLowerCase()
+  const desc = (p.description || '').toLowerCase()
+  return (
+    titre.includes('mariage') || titre.includes('buffet') || titre.includes('gala') || titre.includes('prestige') ||
+    cat.includes('buffet') || cat.includes('mariage') || cat.includes('événement') || cat.includes('evenement') ||
+    desc.includes('mariage') || desc.includes('buffet') || desc.includes('gala')
+  )
+}
+
+const produitsFiltrés = computed(() => {
+  if (pageActive.value === 'location' || pageActive.value === 'favoris') return []
+  let list = produits.value
+  if (uiStore.estModeStandard) {
+    list = list.filter(p => !estProduitEvenement(p))
+  } else {
+    list = list.filter(p => estProduitEvenement(p))
+  }
+  return list.filter(p => p.titre.toLowerCase().includes(recherche.value.toLowerCase()))
+});
+
+const equipementsFiltrés = computed(() => {
+  if (uiStore.estModeStandard) return []
+  if (pageActive.value === 'gastronomie' || pageActive.value === 'favoris') return []
+  return equipements.value.filter(e => e.titre.toLowerCase().includes(recherche.value.toLowerCase()))
+});
 </script>
 
 <template>
@@ -137,10 +177,40 @@ const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' |
       <div class="filtres-scrollables">
         <button class="chip-premium" :class="{ actif: pageActive === 'tout' }" @click="pageActive = 'tout'">{{ t('filter_all') }}</button>
         <button class="chip-premium" :class="{ actif: pageActive === 'gastronomie' }" @click="pageActive = 'gastronomie'">{{ t('filter_gastronomy') }}</button>
-        <button class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">{{ t('filter_rental') }}</button>
+        <button v-if="uiStore.estModeEvenement" class="chip-premium" :class="{ actif: pageActive === 'location' }" @click="pageActive = 'location'">{{ t('filter_rental') }}</button>
         <button class="chip-premium" :class="{ actif: pageActive === 'favoris' }" @click="pageActive = 'favoris'">Favoris ❤️ ({{ nbFavoris }})</button>
       </div>
     </section>
+
+    <!-- CARTES DES OUTILS ÉVÉNEMENTIELS DÈS LE HAUT (SEULEMENT EN MODE ÉVÉNEMENT) -->
+    <div v-if="uiStore.estModeEvenement" class="grille-outils-evenementiels animate-fade">
+      <div class="carte-outil-evt" @click="ouvrirAssistantEvent">
+        <div class="outil-icone">🍳</div>
+        <div class="outil-details">
+          <h3>Créateur de Menu</h3>
+          <p>Composez pas-à-pas le repas sur-mesure de votre réception de prestige.</p>
+          <span class="btn-action-outil">Lancer l'assistant →</span>
+        </div>
+      </div>
+
+      <div class="carte-outil-evt" @click="router.push('/devis-simulator')">
+        <div class="outil-icone">🧮</div>
+        <div class="outil-details">
+          <h3>Simulateur de Budget</h3>
+          <p>Estimez immédiatement les coûts de gastronomie, logistique et personnel.</p>
+          <span class="btn-action-outil">Calculer mon devis →</span>
+        </div>
+      </div>
+
+      <div class="carte-outil-evt" @click="router.push('/lookbook')">
+        <div class="outil-icone">📸</div>
+        <div class="outil-details">
+          <h3>Lookbook d'Inspiration</h3>
+          <p>Explorez les décors et agencements de nos cocktails et réceptions phares.</p>
+          <span class="btn-action-outil">Découvrir les inspirations →</span>
+        </div>
+      </div>
+    </div>
 
     <!-- SQUELETTE DE CHARGEMENT PREMIUM -->
     <section v-if="chargement" class="section-catalogue">
@@ -168,17 +238,6 @@ const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' |
         <p class="soustitre-section">{{ t('sec_gastronomy_sub') }}</p>
       </div>
 
-      <!-- Bannière créateur de menu guidé -->
-      <div class="banniere-menu-builder-premium" v-if="pageActive !== 'location'">
-        <div class="banniere-texte">
-          <h4>🍳 Créez votre Menu Guidé Pas-à-Pas</h4>
-          <p>Associez entrées fines, plats cuisinés de fête et douceurs sucrées en quelques étapes simples pour concevoir le repas idéal.</p>
-        </div>
-        <button @click="emit('open-menu-builder')" class="bouton-banniere-builder">
-          Lancer l'assistant ✨
-        </button>
-      </div>
-      
       <div class="grille-produits">
         <CarteProduit 
           v-for="produit in produitsFiltrés" 
@@ -597,5 +656,76 @@ const equipementsFiltrés = computed(() => (pageActive.value === 'gastronomie' |
   background: var(--accent-green-light);
   padding: 2px 8px;
   border-radius: 99px;
+}
+
+/* --- GRILLE DES OUTILS ÉVÉNEMENTIELS --- */
+.grille-outils-evenementiels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto 40px auto;
+  padding: 0 20px;
+}
+.carte-outil-evt {
+  background: var(--bg-carte);
+  border: 1px solid var(--border-subtile);
+  border-radius: 20px;
+  padding: 24px;
+  display: flex;
+  gap: 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.carte-outil-evt:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-gold);
+  box-shadow: 0 12px 30px rgba(197, 164, 126, 0.12);
+}
+.outil-icone {
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtile);
+}
+.outil-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.outil-details h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  margin: 0;
+  color: var(--text-primary);
+}
+.outil-details p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+.btn-action-outil {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--accent-gold-dark);
+  margin-top: 8px;
+  display: inline-block;
+}
+.carte-outil-evt:hover .btn-action-outil {
+  text-decoration: underline;
+}
+@media (max-width: 600px) {
+  .grille-outils-evenementiels {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 </style>

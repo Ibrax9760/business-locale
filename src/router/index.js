@@ -50,9 +50,21 @@ const router = createRouter({
   routes
 })
 
+import { useUIStore } from '../stores/ui'
+
 import { supabase } from '../utils/supabaseClient'
 
 router.beforeEach(async (to, from) => {
+  // Basculer automatiquement en mode événementiel si la page cible est un outil événementiel
+  if (['/lookbook', '/devis-simulator', '/menu-builder'].includes(to.path)) {
+    try {
+      const uiStore = useUIStore()
+      uiStore.setMode('evenement')
+    } catch (e) {
+      console.warn("Échec d'initialisation du store dans le guard :", e)
+    }
+  }
+
   if (to.path === '/vendeur' || to.path === '/admin') {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) {
